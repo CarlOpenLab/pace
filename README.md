@@ -1,35 +1,40 @@
-# ledgerList
+# LedgerMind 2.0
 
-A simple account book and list list function application, developed using the React technology stack
+Offline-first personal finance app for parsing WeChat / Alipay / bank CSV statements, local intelligent categorization, and spending analytics dashboard.
 
-## Feature
+## Tech Stack
 
-- Front-end and back-end are developed with typescript
+- React 18 + TypeScript + Vite
+- PWA (`vite-plugin-pwa`)
+- IndexedDB (`Dexie`)
+- CSV/XLSX parser (`papaparse` + `xlsx`)
+- Dashboard (`echarts`)
 
-- The original fetch request supports the request interception function, Has perfect typescript hints.
+## Core Features
 
-- All components are written in hooks
+- Statement import: `.csv`, `.xlsx`, `.xls`
+- Source support: WeChat, Alipay, generic bank CSV mapping
+- Local normalization + deduplication
+- Rule-based categorization with priority
+- Optional AI fallback for low-confidence transactions
+- Manual category correction with learning-rule feedback
+- Dashboard: category share, trend, account summary
 
-## Install
+## Development
 
-This project uses node and npm. Go check them out if you don't have them locally installed.
-
-```shell
+```bash
 npm install
+npm run dev
 ```
 
-## Usage
+## Tests
 
-The command to start the project is:
-
-```shell
-npm start
+```bash
+npm run test
 ```
 
-## Maintainers
+## Build
 
-[heart](https://github.com/cc-hearts)
-
-## License
-
-MIT License
+```bash
+npm run build
+```

@@ -1,0 +1,28 @@
+:root { font-family: 'IBM Plex Sans', 'Noto Sans SC', 'Segoe UI', sans-serif; color: #17352f; background: linear-gradient(145deg, #eaf7f2 0%, #f8fcfb 45%, #f2f8ff 100%); }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.app-shell { max-width: 1180px; margin: 0 auto; padding: 20px; }
+.topbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }
+.topbar h1 { margin: 0; font-size: 32px; }
+.topbar p { margin: 8px 0 0; color: #416960; }
+.topbar nav { display: flex; gap: 8px; flex-wrap: wrap; }
+button { border: 1px solid #9fcbc1; background: white; color: #17423a; border-radius: 12px; padding: 8px 14px; cursor: pointer; }
+button.active { background: #0e7a6a; color: white; border-color: #0e7a6a; }
+.panel { background: white; border: 1px solid #deece8; border-radius: 18px; padding: 16px; box-shadow: 0 10px 28px rgba(14, 122, 106, 0.08); }
+.row,.mapping-grid { display: grid; gap: 10px; }
+.row { grid-template-columns: 2fr 1fr auto auto; align-items: center; }
+.mapping-grid { grid-template-columns: repeat(3, minmax(160px, 1fr)); margin-top: 12px; }
+label { display: grid; gap: 6px; font-size: 14px; }
+input,select { border: 1px solid #c6e1db; border-radius: 10px; padding: 8px; }
+.table-wrap { margin-top: 14px; overflow: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 720px; }
+th,td { text-align: left; border-bottom: 1px solid #edf5f2; padding: 10px; font-size: 14px; }
+.dashboard-grid { margin: 12px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stats-grid article { border: 1px solid #deece8; border-radius: 14px; padding: 12px; }
+.stats-grid strong { display: block; margin-top: 8px; font-size: 24px; }
+.card { border: 1px solid #e5f1ed; border-radius: 14px; padding: 8px; }
+.banner { margin: 0 0 12px; border-radius: 12px; background: #d9f4ec; border: 1px solid #a8e1d2; padding: 10px; }
+.message { color: #15594d; font-size: 14px; }
+.hint { color: #547870; font-size: 12px; }
+@media (max-width: 860px) {.row,.mapping-grid,.dashboard-grid,.stats-grid{grid-template-columns:1fr;}}
