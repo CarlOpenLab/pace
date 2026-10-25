@@ -14,10 +14,12 @@ kotlin {
         }
     }
 
+    val xcf = org.jetbrains.kotlin.gradle.plugin.mpp.XCFramework()
     listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "shared"
             isStatic = false
+            xcf.add(this)
         }
     }
 
