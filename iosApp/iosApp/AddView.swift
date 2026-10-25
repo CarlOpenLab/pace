@@ -127,6 +127,8 @@ struct AddView: View {
                     }
                 }
             }
+            .listRowBackground(GlassRowBackground())
+            .glassFormStyle()
             .navigationTitle(txnId == nil ? "记一笔" : "编辑账单")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

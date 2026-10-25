@@ -68,6 +68,8 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("设置")
+            .listRowBackground(GlassRowBackground())
+            .glassFormStyle()
             .id(refreshToken)
             .onAppear {
                 if budgetText.isEmpty, let rule = currentBudget {

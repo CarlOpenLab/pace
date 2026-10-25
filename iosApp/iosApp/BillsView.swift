@@ -85,6 +85,8 @@ struct BillsView: View {
                 }
             }
             .navigationTitle("账单")
+            .listRowBackground(GlassRowBackground())
+            .glassFormStyle()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("记一笔") { showAdd = true }
@@ -145,8 +147,4 @@ struct BillsView: View {
         undoCandidate = nil
         refreshToken += 1
     }
-}
-
-private struct TxnIdBox: Identifiable {
-    let id: String
 }

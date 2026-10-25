@@ -60,7 +60,13 @@ func amountLabel(_ txn: Transaction) -> String {
     }
 }
 
-// MARK: - 账单行
+// MARK: - 工具
+
+struct TxnIdBox: Identifiable {
+    let id: String
+}
+
+// MARK: - 账单行（账单页使用）
 
 struct TxnRowView: View {
     let txn: Transaction
@@ -69,15 +75,15 @@ struct TxnRowView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(txn.note.isEmpty ? txn.category : txn.note)
-                    .font(.body)
+                    .font(.system(.subheadline, design: .rounded).weight(.medium))
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.system(.caption, design: .rounded))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Text(amountLabel(txn))
-                .font(.body)
-                .foregroundStyle(txn.type == TxnTypes.refund ? Color.accentColor : .primary)
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                .foregroundStyle(txn.type == TxnTypes.refund ? AnyShapeStyle(PaceGradients.accent) : AnyShapeStyle(.primary))
         }
         .padding(.vertical, 6)
     }

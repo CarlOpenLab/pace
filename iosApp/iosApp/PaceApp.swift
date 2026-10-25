@@ -42,7 +42,7 @@ struct PaceApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .tint(Color(red: 0.06, green: 0.42, blue: 0.36))
+                .tint(PaceGradients.tint)
         }
     }
 }
@@ -55,9 +55,9 @@ struct ContentView: View {
             BillsView()
                 .tabItem { Label("账单", systemImage: "list.bullet") }
             StatsView()
-                .tabItem { Label("统计", systemImage: "chart.bar") }
+                .tabItem { Label("统计", systemImage: "chart.bar.fill") }
             SettingsView()
-                .tabItem { Label("设置", systemImage: "gearshape") }
+                .tabItem { Label("设置", systemImage: "gearshape.fill") }
         }
     }
 }
