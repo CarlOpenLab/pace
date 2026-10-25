@@ -43,13 +43,15 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Section("导出与恢复") {
+                Section {
                     Button("导出 CSV") { exportCsv() }
                     Button("导出 JSON") { exportJson() }
                     Button("从 JSON 恢复…") { showImporter = true }
                     if let importMessage {
                         Text(importMessage).font(.footnote).foregroundStyle(.secondary)
                     }
+                } header: {
+                    Text("导出与恢复")
                 } footer: {
                     Text("导出文件通过系统分享面板交给你保存；保存到 iCloud/Drive/微信等外部服务后，由对应服务管理。账本数据只保存在本机，删除 App 且未导出时数据将丢失。")
                 }

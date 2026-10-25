@@ -169,7 +169,7 @@ struct HomeView: View {
         .glassCard(cornerRadius: 26, padding: 18)
     }
 
-    private func glassTxnRow(_ txn: Transaction) -> some View {
+    private func glassTxnRow(_ txn: LedgerTransaction) -> some View {
         Button {
             editingTxnId = txn.id
         } label: {
@@ -192,7 +192,7 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    private func rowSubtitle(_ txn: Transaction) -> String {
+    private func rowSubtitle(_ txn: LedgerTransaction) -> String {
         var parts = [txn.category]
         if txn.type == TxnTypes.expense && !txn.countInBudget {
             parts.append("不计入预算")
@@ -201,7 +201,7 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func categoryIcon(_ txn: Transaction) -> some View {
+    private func categoryIcon(_ txn: LedgerTransaction) -> some View {
         let symbol = symbolFor(txn)
         ZStack {
             Circle()
@@ -213,7 +213,7 @@ struct HomeView: View {
         }
     }
 
-    private func symbolFor(_ txn: Transaction) -> (name: String, danger: Bool) {
+    private func symbolFor(_ txn: LedgerTransaction) -> (name: String, danger: Bool) {
         switch txn.type {
         case TxnTypes.income: return ("arrow.down.circle.fill", false)
         case TxnTypes.refund: return ("arrow.uturn.left.circle.fill", false)

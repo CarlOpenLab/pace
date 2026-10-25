@@ -1,5 +1,9 @@
 import SwiftUI
+
 import shared
+
+typealias LedgerTransaction = shared.Transaction
+typealias LedgerCategory = shared.Category
 
 // MARK: - 共享输入构造（Kotlin 默认参数不会桥接，这里集中处理）
 
@@ -50,7 +54,7 @@ func describeError(_ code: String?) -> String {
     }
 }
 
-func amountLabel(_ txn: Transaction) -> String {
+func amountLabel(_ txn: LedgerTransaction) -> String {
     let store = LedgerStore.shared
     switch txn.type {
     case TxnTypes.expense: return "-" + store.format(txn.amountMinor, currency: txn.currency)
@@ -69,7 +73,7 @@ struct TxnIdBox: Identifiable {
 // MARK: - 账单行（账单页使用）
 
 struct TxnRowView: View {
-    let txn: Transaction
+    let txn: LedgerTransaction
 
     var body: some View {
         HStack {

@@ -15,33 +15,31 @@ struct BillsView: View {
     @State private var refreshToken = 0
     @State private var editingTxnId: String?
     @State private var showAdd = false
-    @State private var undoCandidate: Transaction?
+    @State private var undoCandidate: LedgerTransaction?
 
-    private var txns: [Transaction] {
+    private var txns: [LedgerTransaction] { BillsView.loadTxns(keyword: keyword, range: range) }
+
+    /// 拆成静态函数并显式标注类型，避免表达式过于复杂导致 type-check 超时
+    private static func loadTxns(keyword: String, range: RangeKind) -> [LedgerTransaction] {
         let api = LedgerStore.shared.api
         let today = LedgerStore.shared.todayIso
-        var list: [Transaction]
         let searching = !keyword.trimmingCharacters(in: .whitespaces).isEmpty
+        if searching {
+            return Array(api.searchTransactions(keyword: keyword))
+        }
         switch range {
         case .week:
-            if let week = api.weekRange(todayIso: today) {
-                list = searching ? api.searchTransactions(keyword: keyword) : api.transactions(fromLocalDate: week.from, toLocalDate: week.to)
-            } else {
-                list = []
-            }
+            guard let week = api.weekRange(todayIso: today) else { return [] }
+            return Array(api.transactions(fromLocalDate: week.from, toLocalDate: week.to))
         case .month:
-            if let month = api.monthRange(todayIso: today) {
-                list = searching ? api.searchTransactions(keyword: keyword) : api.transactions(fromLocalDate: month.from, toLocalDate: month.to)
-            } else {
-                list = []
-            }
+            guard let month = api.monthRange(todayIso: today) else { return [] }
+            return Array(api.transactions(fromLocalDate: month.from, toLocalDate: month.to))
         case .all:
-            list = searching ? api.searchTransactions(keyword: keyword) : api.allTransactions()
+            return Array(api.allTransactions())
         }
-        return Array(list)
     }
 
-    private var grouped: [(String, [Transaction])] {
+    private var grouped: [(String, [LedgerTransaction])] {
         Dictionary(grouping: txns, by: { $0.localDate })
             .sorted { $0.key > $1.key }
             .map { ($0.key, $0.value) }
@@ -119,7 +117,7 @@ struct BillsView: View {
         }
     }
 
-    private func delete(_ txn: Transaction) {
+    private func delete(_ txn: LedgerTransaction) {
         if let deleted = LedgerStore.shared.api.deleteTransaction(id: txn.id) {
             undoCandidate = deleted
             refreshToken += 1
