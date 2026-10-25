@@ -6,7 +6,7 @@
 
 ```bash
 # 1. 构建共享框架（产出 shared/build/XCFrameworks/{debug,release}/shared.xcframework）
-./gradlew :shared:assembleXCFramework
+./gradlew :shared:assembleSharedXCFramework
 
 # 2. 生成 Xcode 工程（工程文件不进 git，由 project.yml 生成）
 brew install xcodegen
