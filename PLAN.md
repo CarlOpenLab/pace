@@ -300,3 +300,125 @@ AI 应返回结构化草稿，至少包含：金额、类型、日期、分类�
 3. 先实现原生 Android/iOS 的本地账本闭环，不先做云服务。
 4. 再实现 CSV/JSON 导出和恢复。
 5. 最后接入可选 AI 草稿流程与平台专属能力。
+
+## 12. 技术栈决策
+
+Pace 采用“共享业务核心 + 双端原生 UI”的方案，满足 Android 和 iOS 都是原生客户端的要求，同时避免预算计算、导出恢复和日期规则在两端重复实现后产生差异。
+
+### 12.1 客户端
+
+- **Android**：Kotlin + Jetpack Compose。
+- **iOS**：Swift + SwiftUI。
+- **Android 状态与异步**：ViewModel、Kotlin Coroutines、Flow、Navigation Compose；依赖注入优先使用 Hilt。
+- **iOS 状态与异步**：Observation/ObservableObject、Swift Concurrency、NavigationStack。
+- **本地数据库**：SQLDelight + SQLite，Android 和 iOS 共用数据库结构与迁移版本；不同时引入 Room、SwiftData 和 Core Data。
+- **序列化**：Kotlin Serialization，负责共享数据模型、JSON 导出格式和 AI 草稿协议。
+- **系统能力**：Android 使用 Notifications、WorkManager、App Widget、快捷方式和 Storage Access Framework；iOS 使用 UserNotifications、BackgroundTasks、WidgetKit、App Intents、Share Extension 和 Files/Share Sheet。
+
+### 12.2 共享核心
+
+使用 Kotlin Multiplatform 共享以下模块，UI 和平台系统能力不共享：
+
+```text
+shared/
+├── money/       # 最小货币单位、金额计算与格式化规则
+├── budget/      # 每日预算和后续动态预算
+├── transaction/ # 账单模型、类型、退款和转账关联
+├── statistics/  # 本地确定性统计
+├── export/      # CSV/JSON 导出与版本迁移
+├── import/      # 导入校验、预览、去重和事务性恢复
+├── date-time/   # 时区、归属日和午夜边界
+└── validation/  # 账单和预算业务校验
+```
+
+共享核心必须提供稳定、容易被 Swift 调用的 API；避免把复杂 Kotlin 内部实现类型直接暴露给 iOS。Android 与 iOS 对同一组预算案例必须得到相同结果。
+
+### 12.3 金额与时间
+
+- 金额禁止使用 `Double` 作为账本计算类型。
+- 账单金额保存为最小货币单位的 `Long`，同时保存 `currency`。
+- 账单至少保存 `occurredAt`、`localDate`、`timezone`、`createdAt` 和 `updatedAt`。
+- 预算按用户时区的 `localDate` 计算，不能依赖服务器时间。
+- 导入、导出和 AI 解析都必须经过共享核心校验。
+
+### 12.4 本地数据保护
+
+- Android 使用 Android Keystore 保护本地加密密钥。
+- iOS 使用 Keychain 和系统 Data Protection 保护敏感数据。
+- 正式账本只写入设备本地数据库，不建立云端账本同步服务。
+- 导出文件由用户主动通过系统文件选择器或分享面板保存；App 不自动上传。
+- 数据库迁移、备份恢复和加密导出必须可测试、可回滚或在失败时保持原数据不变。
+
+## 13. AI 与 GLM 实施计划
+
+后续使用 GLM 协助实现时，必须先以本文件及预算规则、数据模型、导出格式、AI 隐私规范为约束，不以生成代码替代产品规则确认。
+
+### 13.1 AI 边界
+
+- AI 默认关闭，手动记账和本地统计不能依赖 AI。
+- AI 首发能力是“自然语言生成待确认账单草稿”。
+- AI 只能返回结构化草稿，不能直接写入、修改或删除正式账单。
+- 本地共享核心负责字段校验、金额计算、日期归属、重复检测和最终入账。
+- 金额、日期、分摊或账单类型不明确时，必须要求用户补充，禁止猜测。
+- AI 超时、网络失败、模型返回格式错误时，必须回退到手动记账。
+
+### 13.2 GLM 接入方式
+
+- GLM 通过可替换的 AI Provider 接口接入，不把模型调用散落在页面或数据库代码中。
+- 模型密钥、请求地址和模型名称不能硬编码进原生客户端；如果使用远端 GLM 服务，密钥由受控服务端或用户明确配置的本地代理管理。
+- GLM 请求只携带完成当前任务所需的用户主动提交内容；默认不发送完整账本历史。
+- GLM 返回后先在本地解析为版本化草稿协议，再经过共享核心校验，最后进入用户确认页面。
+- 需要记录模型版本、协议版本和解析失败原因，但日志不得记录完整消费内容、备注、票据或密钥。
+- 如果要求“任何账本内容都不能离开设备”，则不得调用远端 GLM；只能使用设备端模型或本地规则解析。
+
+### 13.3 GLM 开发顺序
+
+1. 先完成纯手动、本地离线记账闭环。
+2. 定义 AI 草稿 JSON Schema 和错误码。
+3. 用本地假数据实现 Provider 接口和确认流程，不连接真实模型。
+4. 接入 GLM，并验证结构化输出、拒答、不确定字段和超时回退。
+5. 用固定测试样例比较 Android/iOS 的解析和预算结果。
+6. 通过用户主动开启的隐私模式上线，不默认开启远端 AI。
+
+### 13.4 给 GLM 的实现约束
+
+每个实现任务应明确：
+
+- 修改范围和不应修改的目录。
+- 输入输出契约。
+- 离线行为和错误处理。
+- 数据是否允许离开设备。
+- 验收案例。
+- 需要运行的测试或真机验证。
+
+GLM 生成代码后必须人工检查数据库迁移、金额精度、时区边界、导入事务、重复入账和隐私数据流；不能仅以“能编译”作为完成标准。
+
+## 14. 推荐仓库结构
+
+```text
+pace/
+├── shared/          # Kotlin Multiplatform 共享业务核心
+├── androidApp/      # Kotlin + Jetpack Compose 原生 Android 客户端
+├── iosApp/          # Swift + SwiftUI 原生 iOS 客户端
+├── web-prototype/   # 现有 Web/PWA 原型，迁移期间仅作参考
+├── docs/
+│   ├── BUDGET_RULES.md
+│   ├── DATA_MODEL.md
+│   ├── EXPORT_FORMAT.md
+│   └── AI_PRIVACY.md
+├── PLAN.md
+└── README.md
+```
+
+当前 Web 原型尚未按该目录重组。重组前必须先保留可运行基线，并分阶段迁移，避免为了目录形式一次性破坏现有验证能力。
+
+## 15. 技术栈验收标准
+
+- Android 使用 Jetpack Compose，iOS 使用 SwiftUI；不使用 Flutter 或 React Native 作为最终客户端 UI。
+- 预算、金额、日期、统计、导入和导出核心逻辑由 Kotlin Multiplatform 共享。
+- Android 和 iOS 对同一组固定案例输出一致。
+- 断网时手动记账、预算和统计完整可用。
+- CSV/JSON 导出和 JSON 恢复不依赖服务器。
+- GLM 不可用时 App 仍完整可用。
+- GLM 结果在用户确认前永远是草稿。
+- 远端 GLM 默认关闭，开启前显示明确的数据流向和隐私说明。
