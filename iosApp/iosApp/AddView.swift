@@ -44,14 +44,14 @@ struct AddView: View {
     @State private var errorText: String?
     @State private var confirmDuplicate = false
 
-    private var categories: [Category] {
+    private var categories: [LedgerCategory] {
         LedgerStore.shared.api.categories().sorted { a, b in
             if a.usageCount != b.usageCount { return a.usageCount > b.usageCount }
             return a.sortOrder < b.sortOrder
         }
     }
 
-    private var refundCandidates: [Transaction] {
+    private var refundCandidates: [LedgerTransaction] {
         LedgerStore.shared.api.allTransactions().filter { $0.type == TxnTypes.expense }
     }
 
@@ -127,6 +127,8 @@ struct AddView: View {
                     }
                 }
             }
+            .listRowBackground(GlassRowBackground())
+            .glassFormStyle()
             .navigationTitle(txnId == nil ? "记一笔" : "编辑账单")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

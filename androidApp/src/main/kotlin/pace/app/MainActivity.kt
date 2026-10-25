@@ -3,24 +3,39 @@ package pace.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -29,14 +44,16 @@ import androidx.navigation.compose.rememberNavController
 import pace.app.ui.AddScreen
 import pace.app.ui.BillsScreen
 import pace.app.ui.HomeScreen
+import pace.app.ui.PaceGradients
 import pace.app.ui.SettingsScreen
 import pace.app.ui.StatsScreen
+import pace.app.ui.PaceTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            pace.app.ui.PaceTheme {
+            PaceTheme {
                 PaceApp()
             }
         }
@@ -61,62 +78,90 @@ fun PaceApp() {
     val showChrome = currentRoute in tabs.map { it.route }
     val showFab = currentRoute == "home"
 
-    Scaffold(
-        bottomBar = {
-            if (showChrome) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = {
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) }
-                        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                if (isSystemInDarkTheme()) PaceGradients.backgroundDark else PaceGradients.backgroundLight
+            )
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            bottomBar = {
+                if (showChrome) {
+                    NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp) {
+                        tabs.forEach { tab ->
+                            NavigationBarItem(
+                                selected = currentRoute == tab.route,
+                                onClick = {
+                                    navController.navigate(tab.route) {
+                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                label = { Text(tab.label) }
+                            )
+                        }
+                    }
+                }
+            },
+            floatingActionButton = {
+                if (showFab) {
+                    // 渐变玻璃胶囊「记一笔」
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color.Transparent,
+                        shadowElevation = 10.dp,
+                        modifier = Modifier
+                    ) {
+                        TextButton(
+                            onClick = { navController.navigate("add") },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                            modifier = Modifier
+                                .background(PaceGradients.accent())
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Text(
+                                "记一笔",
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 2.dp)
+                            )
+                        }
                     }
                 }
             }
-        },
-        floatingActionButton = {
-            if (showFab) {
-                FloatingActionButton(onClick = { navController.navigate("add") }) {
-                    Icon(Icons.Filled.Add, contentDescription = "记一笔")
+        ) { padding ->
+            NavHost(
+                navController = navController,
+                startDestination = "home",
+                modifier = Modifier.padding(padding)
+            ) {
+                composable("home") { HomeScreen(onAdd = { navController.navigate("add") }, onOpenTxn = { id -> navController.navigate("add?txnId=$id") }) }
+                composable("bills") {
+                    BillsScreen(
+                        onOpenTxn = { id -> navController.navigate("add?txnId=$id") },
+                        onAdd = { navController.navigate("add") }
+                    )
                 }
-            }
-        }
-    ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = "home",
-            modifier = Modifier.padding(padding)
-        ) {
-            composable("home") { HomeScreen(onAdd = { navController.navigate("add") }, onOpenTxn = { id -> navController.navigate("add?txnId=$id") }) }
-            composable("bills") {
-                BillsScreen(
-                    onOpenTxn = { id -> navController.navigate("add?txnId=$id") },
-                    onAdd = { navController.navigate("add") }
-                )
-            }
-            composable("stats") { StatsScreen() }
-            composable("settings") { SettingsScreen() }
-            composable(
-                route = "add?txnId={txnId}",
-                arguments = listOf(
-                    androidx.navigation.navArgument("txnId") {
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { entry ->
-                AddScreen(
-                    txnId = entry.arguments?.getString("txnId"),
-                    onDone = { navController.popBackStack() }
-                )
+                composable("stats") { StatsScreen() }
+                composable("settings") { SettingsScreen() }
+                composable(
+                    route = "add?txnId={txnId}",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("txnId") {
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { entry ->
+                    AddScreen(
+                        txnId = entry.arguments?.getString("txnId"),
+                        onDone = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

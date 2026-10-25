@@ -1,5 +1,9 @@
 import SwiftUI
+
 import shared
+
+typealias LedgerTransaction = shared.Transaction
+typealias LedgerCategory = shared.Category
 
 // MARK: - 共享输入构造（Kotlin 默认参数不会桥接，这里集中处理）
 
@@ -50,7 +54,7 @@ func describeError(_ code: String?) -> String {
     }
 }
 
-func amountLabel(_ txn: Transaction) -> String {
+func amountLabel(_ txn: LedgerTransaction) -> String {
     let store = LedgerStore.shared
     switch txn.type {
     case TxnTypes.expense: return "-" + store.format(txn.amountMinor, currency: txn.currency)
@@ -60,24 +64,30 @@ func amountLabel(_ txn: Transaction) -> String {
     }
 }
 
-// MARK: - 账单行
+// MARK: - 工具
+
+struct TxnIdBox: Identifiable {
+    let id: String
+}
+
+// MARK: - 账单行（账单页使用）
 
 struct TxnRowView: View {
-    let txn: Transaction
+    let txn: LedgerTransaction
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(txn.note.isEmpty ? txn.category : txn.note)
-                    .font(.body)
+                    .font(.system(.subheadline, design: .rounded).weight(.medium))
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.system(.caption, design: .rounded))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Text(amountLabel(txn))
-                .font(.body)
-                .foregroundStyle(txn.type == TxnTypes.refund ? Color.accentColor : .primary)
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                .foregroundStyle(txn.type == TxnTypes.refund ? AnyShapeStyle(PaceGradients.accent) : AnyShapeStyle(.primary))
         }
         .padding(.vertical, 6)
     }

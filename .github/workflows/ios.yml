@@ -33,8 +33,15 @@ jobs:
       - name: Setup Gradle (cache)
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build shared XCFramework
-        run: ./gradlew :shared:assembleXCFramework --console=plain
+      - name: Build shared XCFramework (release)
+        run: ./gradlew :shared:assembleSharedReleaseXCFramework --console=plain
+
+      - name: Select newest Xcode
+        run: |
+          set -euxo pipefail
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
