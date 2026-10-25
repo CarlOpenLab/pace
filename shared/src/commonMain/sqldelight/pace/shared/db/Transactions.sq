@@ -1,0 +1,58 @@
+CREATE TABLE transactions (
+    id TEXT NOT NULL PRIMARY KEY,
+    type TEXT NOT NULL,
+    amountMinor INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    category TEXT NOT NULL,
+    account TEXT NOT NULL,
+    note TEXT NOT NULL,
+    occurredAtEpochMillis INTEGER NOT NULL,
+    localDate TEXT NOT NULL,
+    timezoneId TEXT NOT NULL,
+    countInBudget INTEGER NOT NULL,
+    refundOfId TEXT,
+    source TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    createdAtEpochMillis INTEGER NOT NULL,
+    updatedAtEpochMillis INTEGER NOT NULL
+);
+
+CREATE INDEX transactions_local_date ON transactions(localDate);
+
+CREATE INDEX transactions_fingerprint ON transactions(fingerprint);
+
+selectAll:
+SELECT * FROM transactions ORDER BY occurredAtEpochMillis DESC, id;
+
+selectByLocalDateRange:
+SELECT * FROM transactions WHERE localDate >= ? AND localDate <= ? ORDER BY occurredAtEpochMillis DESC, id;
+
+selectByLocalDate:
+SELECT * FROM transactions WHERE localDate = ? ORDER BY occurredAtEpochMillis DESC, id;
+
+selectById:
+SELECT * FROM transactions WHERE id = ?;
+
+selectByFingerprint:
+SELECT * FROM transactions WHERE fingerprint = ? LIMIT 1;
+
+searchByKeyword:
+SELECT * FROM transactions
+WHERE category LIKE ? OR note LIKE ? OR account LIKE ?
+ORDER BY occurredAtEpochMillis DESC, id;
+
+insertOrReplace:
+INSERT OR REPLACE INTO transactions(
+    id, type, amountMinor, currency, category, account, note,
+    occurredAtEpochMillis, localDate, timezoneId, countInBudget,
+    refundOfId, source, fingerprint, createdAtEpochMillis, updatedAtEpochMillis
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM transactions WHERE id = ?;
+
+deleteAll:
+DELETE FROM transactions;
+
+countAll:
+SELECT COUNT(*) AS total FROM transactions;

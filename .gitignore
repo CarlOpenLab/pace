@@ -21,3 +21,22 @@
 /src/.umi-test
 /.env.local
 coverage/*
+local.properties
+
+# gradle / android
+.gradle/
+build/
+*.apk
+!androidApp/src/debug/*
+.kotlin/
+hs_err_pid*.log
+
+# ios
+iosApp/iosApp.xcodeproj/
+iosApp/iosApp.xcworkspace/
+xcuserdata/
+*.xcuserdatad/
+DerivedData/
+*.ipa
+*.dSYM.zip
+replay_pid*.log

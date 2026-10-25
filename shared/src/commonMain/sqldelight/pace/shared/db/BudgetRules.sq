@@ -1,0 +1,19 @@
+CREATE TABLE budget_rules (
+    id TEXT NOT NULL PRIMARY KEY,
+    dailyAmountMinor INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    effectiveFromLocalDate TEXT NOT NULL,
+    createdAtEpochMillis INTEGER NOT NULL
+);
+
+selectAllBudgetRules:
+SELECT * FROM budget_rules ORDER BY effectiveFromLocalDate, createdAtEpochMillis;
+
+selectBudgetRuleById:
+SELECT * FROM budget_rules WHERE id = ?;
+
+insertOrReplaceBudgetRule:
+INSERT OR REPLACE INTO budget_rules(id, dailyAmountMinor, currency, effectiveFromLocalDate, createdAtEpochMillis) VALUES (?, ?, ?, ?, ?);
+
+deleteAllBudgetRules:
+DELETE FROM budget_rules;
