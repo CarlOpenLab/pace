@@ -239,6 +239,9 @@ struct DraftReviewView: View {
 
             // 分类、日期、账户三样用「 · 」连起来。默认字号并成一串（和以前一样）；
             // 大字号下一行一样、不带间隔点——换行时把「·」甩到行首是最难看的。
+            // 试过换成「按放得下判断」的 ViewThatFits，默认字号整页文字会挪一个像素
+            // （0.321%，六行字都动了），所以这一页先用档位判断；首页那处 ViewThatFits
+            // 是零差异的，两处不同不是风格问题，是各页实测结果不同。
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(metaParts(item), id: \.self) { part in

@@ -145,19 +145,17 @@ struct HomeView: View {
             PaceBar(ratio: barRatio(data), danger: data.overspent)
                 .accessibilityValue(Text("已用 \(usedPercent(data))%"))
 
-            // 默认字号一整行、中间带点；大字号折行时拆成两行、不带点——
-            // 换行把「·」甩到行尾（或行首）比换行本身难看（Colo 第十六版 §四条）。
-            Group {
-                if typeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(Copy.Home.budgetPart(budget: plainAmount(data.budgetMinor)))
-                        Text(Copy.Home.spentPart(spent: plainAmount(max(data.netSpentMinor, 0))))
-                    }
-                } else {
-                    Text(Copy.Home.budgetSpent(
-                        budget: plainAmount(data.budgetMinor),
-                        spent: plainAmount(max(data.netSpentMinor, 0))
-                    ))
+            // 判据是「整行放得下」，不是「是不是辅助功能档」：xxxLarge 这种还没进辅助功能
+            // 的档位也可能放不下，那时折行，点照样会甩到行尾（Ato）。
+            // 放得下就是一整行带点（默认字号照旧），放不下就拆两行、不带点。
+            ViewThatFits(in: .horizontal) {
+                Text(Copy.Home.budgetSpent(
+                    budget: plainAmount(data.budgetMinor),
+                    spent: plainAmount(max(data.netSpentMinor, 0))
+                ))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Copy.Home.budgetPart(budget: plainAmount(data.budgetMinor)))
+                    Text(Copy.Home.spentPart(spent: plainAmount(max(data.netSpentMinor, 0))))
                 }
             }
             .font(.footnote)
