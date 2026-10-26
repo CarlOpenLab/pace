@@ -406,7 +406,8 @@ struct QuickAddSettingsView: View {
             Text(ai.model.isEmpty ? Copy.Ai.Settings.ModelPick.choose : ai.model)
                 .paceFont(15, .regular, relativeTo: .subheadline)
                 .foregroundStyle(ai.model.isEmpty ? PaceColor.ink2 : PaceColor.ink)
-                .lineLimit(2)
+                // 不设行数：模型名长短不一，最大档两行装不下就被截成「deepseek-v4.1-fla…」，
+                // 正好切在最该核对的那几个字上。宁可多占一行。
             Image(systemName: "chevron.up.chevron.down")
                 // 原 10 号：caption2 是 11，按基准缩放。
                 .paceFont(10, .semibold, relativeTo: .caption2)
