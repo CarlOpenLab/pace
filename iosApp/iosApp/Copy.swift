@@ -515,14 +515,14 @@ enum Copy {
             static func previewDuplicates(count: Int) -> String {
                 "其中 \(count) 笔现在账本里已经有了"
             }
-            static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。\n替换：先清空，再写入文件里的内容。"
+            static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。 替换：先清空，再写入文件里的内容。"
             static func merged(added: Int, skipped: Int) -> String {
                 "已合并：新增 \(added) 笔，跳过 \(skipped) 笔"
             }
 
             /// 7.30 导入失败：错误码只进日志，界面统一冠以前缀。
             enum Issue {
-                static let invalidAmount = "有一笔金额不对，要是大于 0 的数，最多两位小数"
+                static let invalidAmount = "有一笔金额不对，要写成大于 0 的数，最多两位小数"
                 static let invalidDate = "有一笔日期看不懂"
                 static let invalidTypeOrCategory = "有一笔的类型或分类不认识"
                 static let noteTooLong = "有一笔备注超过 500 字"
