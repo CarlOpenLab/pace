@@ -456,9 +456,10 @@ struct SettingsView: View {
                     } else {
                         List {
                             Section("文件校验未通过，不会写入任何数据") {
-                                ForEach(Array(preview.errors), id: \.self) { error in
-                                    Text(error).font(.footnote)
-                                }
+                                // 错误码只进日志：这一行原来直接把 IMPORT_MALFORMED_JSON
+                                // 这类码印在屏幕上，人看到一个英文码不知道该怎么办。
+                                Text(importProblem(preview.errors))
+                                    .font(.footnote)
                             }
                         }
                     }
@@ -478,6 +479,7 @@ struct SettingsView: View {
 
     /// 导入失败：错误码只写日志，界面上说人话。
     private func importProblem(_ errors: [String]) -> String {
+        NSLog("[Pace] 导入问题：\(errors.joined(separator: " | "))")
         for raw in errors {
             let code = raw.split(separator: ":").first.map(String.init) ?? raw
             switch code.trimmingCharacters(in: .whitespaces) {
