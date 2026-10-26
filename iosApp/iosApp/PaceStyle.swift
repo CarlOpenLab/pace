@@ -22,14 +22,19 @@ extension Color {
 enum PaceColor {
     static let canvas = Color(light: 0xF7F7F7, dark: 0x0C0C0D)
     static let card = Color(light: 0xFFFFFF, dark: 0x1A1A1C)
-    static let card2 = Color(light: 0xF2F2F4, dark: 0x242426)
+    static let card2 = Color(light: 0xF2F2F4, dark: 0x26262A)
     static let ink = Color(light: 0x0E0E0F, dark: 0xF5F5F7)
     static let ink2 = Color(light: 0x6E6E73, dark: 0xA6A6AD)
     static let ink3 = Color(light: 0x8E8E93, dark: 0x7A7A80)
     static let line = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.10)
+    /// 卡片里面的分隔线：暗色下白 10% 压在 card 上只有 1.53:1，几乎看不见，抬到 12%。
+    static let divider = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.12)
     static let accent = Color(light: 0x1C1C1E, dark: 0xF2F2F4)
     static let onAccent = Color(light: 0xFFFFFF, dark: 0x0C0C0D)
     static let income = Color(light: 0x107050, dark: 0x4ED4A0)
+    /// 红是含义不是明暗倾向：dangerFill 两个主题都是同一个红，只给「实底红」用
+    /// （滑动删除、危险确认）。danger 是它的浅色版本，只给文字和图标。
+    static let dangerFill = Color(light: 0xC0392B, dark: 0xC0392B)
     static let danger = Color(light: 0xC0392B, dark: 0xFF8578)
     static let ai = Color(light: 0x5B3FD9, dark: 0xB9A6FF)
 
@@ -185,14 +190,15 @@ struct PrimaryButtonStyle: ButtonStyle {
 }
 
 /// 次要按钮：纯文字
-/// 工具栏的「保存」：能用时实底 accent，不能用时 card2 底 + ink3 字。
+/// 实底主按钮：能用时 accent 底 + onAccent 字，不能用时 card2 底 + ink2 字
+/// （ink3 在亮色 card2 上只有 2.92:1，低于 3；ink2 是 4.54 / 6.23）。
 /// 记一笔和草稿确认页共用这一套——一屏里两种保存长相，用户会以为是两件事。
 struct ToolbarSaveStyle: ButtonStyle {
     let enabled: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(enabled ? PaceColor.onAccent : PaceColor.ink3)
+            .foregroundStyle(enabled ? PaceColor.onAccent : PaceColor.ink2)
             .padding(.horizontal, 14)
             .frame(height: 34)
             .background(

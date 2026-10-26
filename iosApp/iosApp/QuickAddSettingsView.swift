@@ -165,7 +165,7 @@ struct QuickAddSettingsView: View {
             }
 
             if currentProvider == AiProvider.custom {
-                Divider().background(PaceColor.line)
+                Divider().background(PaceColor.divider)
 
                 field(
                     label: Copy.Ai.Settings.Endpoint.label,
@@ -181,7 +181,7 @@ struct QuickAddSettingsView: View {
                 }
             }
 
-            Divider().background(PaceColor.line)
+            Divider().background(PaceColor.divider)
 
             field(
                 label: manualEntry || models.isEmpty ? Copy.Ai.Settings.Model.label : Copy.Ai.Settings.ModelPick.label,
@@ -231,7 +231,7 @@ struct QuickAddSettingsView: View {
 
             fetchModelsRow
 
-            Divider().background(PaceColor.line)
+            Divider().background(PaceColor.divider)
 
             field(
                 label: Copy.Ai.Settings.Key.label,
@@ -252,18 +252,19 @@ struct QuickAddSettingsView: View {
                 }
             }
 
+            // 从一句话那页挪过来的隐私说明：它是这条路的边界，不是装饰。
+            // 就贴在 Key 输入框下面，一行 12 ink2。
+            Text(Copy.Ai.Settings.keyScope)
+                .font(.system(size: 12))
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+
             if ai.keyStoreFailed, !ai.key.isEmpty {
                 Text(Copy.Ai.Settings.Key.storeFailed)
                     .font(.system(size: 11))
                     .foregroundStyle(PaceColor.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Text(Copy.Ai.Settings.fallbackNote)
-                .font(.system(size: 11))
-                .foregroundStyle(PaceColor.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
         }
         .padding(16)
         .paceCardFill(PaceRadius.card)
@@ -558,7 +559,7 @@ struct AiModelPickerView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchBar
-                Divider().background(PaceColor.line)
+                Divider().background(PaceColor.divider)
                 if filtered.isEmpty {
                     Text(Copy.Ai.Settings.ModelPick.noMatch)
                         .font(.system(size: 13))
@@ -573,7 +574,7 @@ struct AiModelPickerView: View {
                         LazyVStack(spacing: 0) {
                             ForEach(filtered, id: \.self) { name in
                                 row(name)
-                                Divider().background(PaceColor.line).padding(.leading, 16)
+                                Divider().background(PaceColor.divider).padding(.leading, 16)
                             }
                         }
                     }

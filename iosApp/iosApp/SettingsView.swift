@@ -34,6 +34,7 @@ struct SettingsView: View {
                 quickAddSection
                 transferSection
                 dataSection
+                debugSection
 
                 Section {
                     EmptyView()
@@ -155,20 +156,19 @@ struct SettingsView: View {
                     .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))
             }
 
+            // 真按钮，不是一行说明：可用时实底 accent，不可用时灰底点不动。
+            // 「已保存」直接换按钮上的字，不挂在行右边——那看起来像一条状态说明。
             Button {
                 saveBudget()
             } label: {
-                HStack {
-                    Text(Copy.Settings.saveBudget)
-                        .font(.system(size: 15, weight: .semibold))
-                    Spacer()
-                    if showSavedBadge {
-                        Text(Copy.Settings.savedBadge)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(PaceColor.income)
-                    }
-                }
+                Text(showSavedBadge ? Copy.Settings.savedBadge : Copy.Settings.saveBudget)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(canSaveBudget ? PaceColor.onAccent : PaceColor.ink2)
             }
+            .buttonStyle(BudgetSaveButtonStyle(enabled: canSaveBudget))
+            .disabled(!canSaveBudget)
+            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            .listRowBackground(Color.clear)
 
             if let budgetError {
                 Text(budgetError)
@@ -225,6 +225,11 @@ struct SettingsView: View {
         }
     }
 
+    /// 能不能按：金额和手动记账同一条校验（大于 0、最多两位小数）。
+    private var canSaveBudget: Bool {
+        Money.shared.parseToMinor(text: budgetText) != nil
+    }
+
     // MARK: - 导出与恢复
 
     private var transferSection: some View {
@@ -272,10 +277,35 @@ struct SettingsView: View {
             refreshToken += 1
             withAnimation { showSavedBadge = true }
             Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                // spec §9：1.6 秒后回到「保存预算」；按钮宽度是整行，字换了也不跳。
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
                 withAnimation { showSavedBadge = false }
             }
         }
+    }
+
+    /// 只在调试构建里出现，正式包里这一节整块不存在。
+    #if DEBUG
+    private var debugFaultBinding: Binding<DebugFault> {
+        Binding(get: { DebugFaults.armed }, set: { DebugFaults.armed = $0 })
+    }
+    #endif
+
+    @ViewBuilder
+    private var debugSection: some View {
+        #if DEBUG
+        Section {
+            Picker("制造一次失败", selection: debugFaultBinding) {
+                ForEach(DebugFault.allCases) { fault in
+                    Text(fault.label).tag(fault)
+                }
+            }
+        } header: {
+            Text("调试")
+        } footer: {
+            Text("只为把失败卡渲染出来看一眼。选完做一次对应的操作，用完自己回到「不制造」，不写盘，正式包里没有这一节。")
+        }
+        #endif
     }
 
     // MARK: 导出
@@ -301,6 +331,14 @@ struct SettingsView: View {
         let stamp = DateFormatter(format: "yyyyMMdd-HHmmss").string(from: Date())
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pace-ledger-\(stamp).\(ext)")
+        #if DEBUG
+        // 磁盘不坏就没有写失败，只能造一个，看那两句字会不会截。
+        if DebugFaults.take(.exportWrite) {
+            failedExport = retry
+            exportFailed = true
+            return
+        }
+        #endif
         do {
             guard let data = text.data(using: .utf8) else { throw ExportError.encoding }
             try data.write(to: url)
@@ -321,7 +359,7 @@ struct SettingsView: View {
         picker.delegate = DocumentPickerDelegate { url in
             guard let url, let data = try? Data(contentsOf: url),
                   let text = String(data: data, encoding: .utf8) else {
-                importMessage = "无法读取文件"
+                importMessage = Copy.Settings.Import.Issue.unknown
                 return
             }
             importJsonText = text
@@ -408,6 +446,24 @@ extension DateFormatter {
     convenience init(format: String) {
         self.init()
         dateFormat = format
+    }
+}
+
+/// 设置里的「保存预算」：占满整行的胶囊，高 50，按下和主按钮同一套反馈。
+private struct BudgetSaveButtonStyle: ButtonStyle {
+    let enabled: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                enabled ? PaceColor.accent : PaceColor.card2,
+                in: RoundedRectangle(cornerRadius: PaceRadius.block, style: .continuous)
+            )
+            .opacity(configuration.isPressed && enabled ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: configuration.isPressed)
     }
 }
 

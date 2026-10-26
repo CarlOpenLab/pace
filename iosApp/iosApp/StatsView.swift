@@ -52,9 +52,6 @@ struct StatsView: View {
         .onChange(of: appState.showDrafts) { _, showing in
             if !showing { refresh() }
         }
-        .onChange(of: appState.showQuickAdd) { _, showing in
-            if !showing { refresh() }
-        }
     }
 
     // MARK: - 范围与内容

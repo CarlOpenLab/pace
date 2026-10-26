@@ -21,6 +21,11 @@ targets:
     sources:
       - path: iosApp
     settings:
+      # 调试构建要认得 `#if DEBUG`：故障注入那一整块只在这里面编译，
+      # 正式包里连编都不编进去。
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.pace.app
         PRODUCT_NAME: Pace

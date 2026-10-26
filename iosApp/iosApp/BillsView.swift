@@ -104,9 +104,6 @@ struct BillsView: View {
                 .onChange(of: state.showDrafts) { _, showing in
                     if !showing { reload() }
                 }
-                .onChange(of: state.showQuickAdd) { _, showing in
-                    if !showing { reload() }
-                }
                 .sheet(item: editingBinding, onDismiss: { reload() }) { box in
                     AddView(txnId: box.id)
                 }
@@ -216,7 +213,7 @@ struct BillsView: View {
 
                     if index < 2 {
                         Rectangle()
-                            .fill(PaceColor.line)
+                            .fill(PaceColor.divider)
                             .frame(height: 1)
                             .padding(.leading, PaceSpace.cardPadding + 46)
                     }
@@ -327,7 +324,7 @@ struct BillsView: View {
 
             if !isLast {
                 Rectangle()
-                    .fill(PaceColor.line)
+                    .fill(PaceColor.divider)
                     .frame(height: 1)
                     .padding(.leading, PaceSpace.cardPadding + 46)
             }
@@ -342,6 +339,9 @@ struct BillsView: View {
             } label: {
                 Label(Copy.Delete.action, systemImage: "trash")
             }
+            // 全局 tint 是 ink（暗色下近白），滑动动作的底会跟着变成白的 ——
+            // 白底白字。凡是 destructive 控件都显式给红，不许吃全局 tint。
+            .tint(PaceColor.dangerFill)
         }
     }
 

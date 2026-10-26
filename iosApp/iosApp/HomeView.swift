@@ -5,7 +5,6 @@ import shared
 /// 靠排版撑层次：近黑与白；颜色只做三件事——黑＝选中与按钮，绿＝收入，红＝超支。
 struct HomeView: View {
     @EnvironmentObject private var state: AppState
-    @EnvironmentObject private var ai: AiSettings
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 56
@@ -38,9 +37,6 @@ struct HomeView: View {
             if !showing { refresh() }
         }
         .onChange(of: state.showDrafts) { _, showing in
-            if !showing { refresh() }
-        }
-        .onChange(of: state.showQuickAdd) { _, showing in
             if !showing { refresh() }
         }
     }
@@ -169,14 +165,36 @@ struct HomeView: View {
         .accessibilityLabel(Text("\(Copy.Home.statusNoBudget)，\(Copy.Home.noBudgetHint)"))
     }
 
+    /// 日期和状态并排，放不下就上下两行。
+    /// 大字号下日期原来会从「10月」后面断行、「26日」掉到第二行；不靠缩小字号
+    /// 或截断来救，字号是用户自己选的，他要大字就该拿到大字。状态不能被挤掉，
+    /// 它是这张卡的主结论；所以两样都不缩，换的是排法。
     private func header(_ data: TodayOverview) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            Text(dateLine(data.localDate))
-                .font(.footnote)
-                .foregroundStyle(PaceColor.ink2)
-            Spacer(minLength: 8)
-            statusPill(data)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 8) {
+                dateLabel(data)
+                Spacer(minLength: 8)
+                statusPill(data).fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                dateLabel(data)
+                statusPill(data).fixedSize()
+            }
+            // 两行也放不下时只剩短写法兜底：「今天」在这一句里是有意思的，
+            // 只有实在没有位置时才让位。
+            VStack(alignment: .leading, spacing: 6) {
+                dateLabel(data, short: true)
+                statusPill(data).fixedSize()
+            }
         }
+    }
+
+    private func dateLabel(_ data: TodayOverview, short: Bool = false) -> some View {
+        Text(short ? shortDateLine(data.localDate) : dateLine(data.localDate))
+            .font(.footnote)
+            .foregroundStyle(PaceColor.ink2)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     @ViewBuilder
@@ -239,7 +257,7 @@ struct HomeView: View {
                         txnRow(txn)
                         if txn.id != data.transactions.last?.id {
                             Rectangle()
-                                .fill(PaceColor.line)
+                                .fill(PaceColor.divider)
                                 .frame(height: 1)
                                 .padding(.leading, 46)
                         }
@@ -255,8 +273,8 @@ struct HomeView: View {
             Text("还没有账单")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(PaceColor.ink)
-            // 和主按钮、键盘那颗键同一个判据：只有真走模型的人读到的才是「说一句话就行」。
-            Text(ai.usesRemoteModel ? Copy.Home.emptySubtitleWithKey : Copy.Home.emptySubtitleNoKey)
+            // 不再按有没有 Key 分叉：两种填法都从同一页进，说的也是同一句话。
+            Text(Copy.Home.emptySubtitle)
                 .font(.footnote)
                 .foregroundStyle(PaceColor.ink2)
                 .multilineTextAlignment(.center)
@@ -364,6 +382,15 @@ struct HomeView: View {
     }
 
     // MARK: - 文案与无障碍
+
+    /// 短写法，只在日期连一整行都放不下时用。
+    private func shortDateLine(_ iso: String) -> String {
+        let parts = iso.split(separator: "-")
+        guard parts.count == 3,
+              let month = Int(parts[1]),
+              let day = Int(parts[2]) else { return iso }
+        return "\(month)/\(day)"
+    }
 
     private func dateLine(_ iso: String) -> String {
         let parts = iso.split(separator: "-")

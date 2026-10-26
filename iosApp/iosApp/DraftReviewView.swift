@@ -14,7 +14,7 @@ struct DraftReviewView: View {
     @State private var duplicateNotice = false
     /// 没保存上的那几笔：停在这一页说清楚，不用会消失的提示。
     @State private var failureBody: String?
-    /// 从类型菜单走「改成手动记账」的那一笔。
+    /// 从类型菜单走「切到手动」的那一笔。
     @State private var manualPrefill: AddPrefill?
 
     init(drafts: [DraftItem], onDone: @escaping () -> Void) {
@@ -38,7 +38,10 @@ struct DraftReviewView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: PaceSpace.inner) {
-                    header
+                    // 草稿都删光了就别再留着列表的表头：它注解的是一张不存在的列表。
+                    if !drafts.isEmpty {
+                        header
+                    }
                     if drafts.isEmpty {
                         emptyState
                     } else {
@@ -56,21 +59,25 @@ struct DraftReviewView: View {
             .background(PaceColor.canvas)
             .navigationTitle(Copy.Draft.title(count: drafts.count))
             .navigationBarTitleDisplayMode(.inline)
+            // 工具栏交给系统：左上返回、右上保存都是系统玻璃。这一页唯一的实底
+            // 强调留给草稿卡上的「记上」。
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(saveTitle) { saveAll() }
-                        .buttonStyle(ToolbarSaveStyle(enabled: canSave))
                         .disabled(!canSave)
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Text(Copy.Draft.footer)
-                    .font(.system(size: 12))
-                    .foregroundStyle(PaceColor.ink2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, PaceSpace.screen)
-                    .padding(.vertical, 10)
-                    .background(PaceColor.canvas)
+                // 没有草稿时页脚也一样让开：空卡自己已经说了账本没变。
+                if !drafts.isEmpty {
+                    Text(Copy.Draft.footer)
+                        .font(.system(size: 12))
+                        .foregroundStyle(PaceColor.ink2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, PaceSpace.screen)
+                        .padding(.vertical, 10)
+                        .background(PaceColor.canvas)
+                }
             }
             .overlay(alignment: .top) {
                 if let toast {
@@ -86,7 +93,8 @@ struct DraftReviewView: View {
                 }
             }
             .sheet(item: $manualPrefill) { prefill in
-                AddView(txnId: nil, prefill: prefill)
+                // 这一行是「切到手动」：打开记一笔页时直接落在手动那边。
+                AddView(txnId: nil, prefill: prefill, startInManual: true)
             }
             .alert(Copy.Confirm.Duplicate.title, isPresented: $duplicateNotice) {
                 Button(Copy.Confirm.Duplicate.primary) { saveDuplicatesAnyway() }
@@ -217,7 +225,7 @@ struct DraftReviewView: View {
                 editor(draft: draft)
             } else {
                 HStack(spacing: 8) {
-                    Button("改") { editingId = item.id }
+                    Button(Copy.Ai.Input.editInline) { editingId = item.id }
                         .buttonStyle(PillChipStyle())
                     Button(Copy.Draft.deleteAction) { remove(item.id) }
                         .buttonStyle(PillChipStyle())

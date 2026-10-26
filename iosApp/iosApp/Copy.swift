@@ -14,38 +14,15 @@ enum Copy {
 
     enum Ai {
 
-        /// 1.1 入口（记账弹层顶部那行输入）。
-        enum Entry {
-            static let placeholder = "昨天午饭 28"
-            /// 输入框左侧小标签，保持短。
-            static let badge = "AI"
-            /// 顶部字段下方的标题行。
-            static let title = "一句话记账"
-            static let a11y = "一句话记账，用一句话生成账单草稿"
-            /// 回车键文案。
-            static let submit = "整理"
-        }
-
         /// 1.2 输入页（sheet）。
         enum Input {
-            static let title = "一句话记账"
-            /// 输入卡顶部那行标签。
-            static let label = "说一句话，出几笔草稿"
-            static let placeholder = "昨天午饭 28，晚上打车 16"
-            /// 例句胶囊（点一下填进去）。
-            static let examples = ["昨天午饭 28", "今晚打车 16", "超市 56 微信"]
-            /// 说明一行：三种状态，按开关和有没有 Key 换。
-            static let noteNoKey = "没填自己的模型时，就在这台手机上整理，不联网。"
-            static let noteRemote = "只发送你在这里打的这句话，账本其他内容不跟着发。可以一次说好几笔。"
-            static let noteLocalOff = "开关关着，现在用本机规则整理，不联网。可以一次说好几笔。"
-            /// 旧键，等同 noteRemote。
-            static let note = noteRemote
-            static let noteLocal = noteLocalOff
+            static let placeholder = "早饭 12，地铁 4"
+            /// 例句胶囊（点一下填进去）。最多三个，第一个留「昨天午饭 28」：
+            /// 本机规则失败卡里就引用了这一句。
+            static let examples = ["昨天午饭 28", "超市 56 微信", "收到稿费 1200"]
             /// 没填 Key 时的状态小字；填了则显示模型名（如 deepseek-chat）。
             static let localRuleStatus = "本机规则"
             static let cancel = "取消"
-            /// 次按钮：从这儿退出就是要手动记，不叫「取消」。
-            static let manual = "改成手动记账"
             static let submit = "整理成草稿"
             static let submitting = "正在整理…"
             /// 就地确认（docs/DESIGN-quickadd-primary.md §5）
@@ -134,7 +111,9 @@ enum Copy {
                 static let storeFailed = "这把 Key 没存进手机。这一页里还能用，但重开 app 就没了，得再粘一次。"
             }
 
-            static let fallbackNote = "没配好服务，就用本机规则整理：断网也能用，说的话不出手机。"
+            /// Key 下面那句：开关那两行说「现在走哪条路」，这句说「贴上这把 Key
+            /// 等于同意什么」。Camo 定稿，顶掉原来那句「没配好服务，就用本机规则整理」。
+            static let keyScope = "填了它，记账时打的那句话会发给你选的服务；账本其他内容不跟着发，没填就还是本机规则。"
             static let securityTitle = "Key 在你手机上"
             static let securityNote = "提醒一句：Key 存在你手机上，谁拿到你解锁的手机，就能用掉你的额度。建议单独申请一个 Key，方便随时去服务商后台吊销。"
         }
@@ -241,7 +220,7 @@ enum Copy {
         }
         /// 草稿全删光以后这一页的样子。
         static let emptyTitle = "这一批草稿都删掉了。"
-        static let emptySubtitle = "账本没有变化。关掉这一页就行。"
+        static let emptySubtitle = "账本没有变化，回去就行"
         static let discardAll = "全部不要"
         static let deleteAction = "删除"
         static let statusNeedsSupplement = "需要补充"
@@ -253,7 +232,7 @@ enum Copy {
         /// 金额为 0 那行说明。
         static let noAmountHint = "这句话里没有金额，不猜。"
         /// 卡片头部类型胶囊的去表单出口。
-        static let toManual = "退款或转账，改成手动记账"
+        static let toManual = "退款或转账，切到手动"
 
         /// 4.1 「需要补充」的标记措辞（标记 + 点开补的时候那行提示）。
         enum Missing {
@@ -368,10 +347,8 @@ enum Copy {
         static let budgetSpentHint = "不算进预算的那几笔，和退款，都不在这里扣。"
         static let todayBillsTitle = "今天"
         static let emptyTitle = "还没有账单"
-        /// 走本机规则时（没配好模型、或开关关着）说「打一句话」。
-        static let emptySubtitleNoKey = "点下面的「记一笔」，或者打一句话。"
-        /// 真正走模型时只说这一种：说一句话就行（Camo 定的词）。
-        static let emptySubtitleWithKey = "点下面的「记一笔」，说一句话就行。"
+        /// 两个填法共用同一句：不再按有没有 Key 分叉。
+        static let emptySubtitle = "点「记一笔」，说一句话就行。"
         static let loading = "加载中…"
     }
 
@@ -403,9 +380,30 @@ enum Copy {
         static let notInBudget = "不计入预算"
     }
 
+    // MARK: - 8. 记一笔：两种填法（docs/add-mode-switch-copy.md）
+
+    /// 页顶的切换器。两个都是 Button，不是 Picker。
+    enum AddMode {
+        static let sentence = "一句话"
+        static let manual = "手动"
+        static let switchHint = "切换后已经填的内容不会丢"
+    }
+
+    /// 一句话这一条路自己的字：键盘键和读屏提示按走不走模型分开。
+    enum Sentence {
+        static let fieldA11y = "一句话记账"
+        static let parsing = "正在整理…"
+    }
+
     // MARK: - 7. 记账页（AddView）
 
     enum Add {
+        static let title = "记一笔"
+        static let editTitle = "编辑账单"
+        static let save = "保存"
+        static let closeA11y = "关掉"
+        /// 类型胶囊那一组的读屏名（docs/add-mode-switch-copy.md §3）。
+        static let typeGroupA11y = "类型"
         static let sectionAccountBudget = "账户与预算"
         static let accountPlaceholder = "现金、微信、银行卡…"
         static let sectionRefundOriginal = "这笔退的是哪一笔"

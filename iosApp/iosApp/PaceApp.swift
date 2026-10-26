@@ -47,10 +47,8 @@ final class AppState: ObservableObject {
     static let shared = AppState()
 
     @Published var tab: AppTab = .home
+    /// 唯一入口：主按钮永远打开同一页「记一笔」，页里再分一句话 / 手动。
     @Published var showAdd = false
-    @Published var showQuickAdd = false
-    /// 从「一句话记账」失败退到手动记账时，把用户原来那句话带进备注。
-    @Published var pendingNote: String?
     @Published var pendingDrafts: [DraftItem] = []
     @Published var showDrafts = false
     /// 右下那颗「记一笔」是否收起（滚动收起，滞回 24pt）。
@@ -137,9 +135,6 @@ struct RootView: View {
         }
         .sheet(isPresented: $state.showAdd) {
             AddView(txnId: nil)
-        }
-        .sheet(isPresented: $state.showQuickAdd) {
-            QuickAddView { }
         }
         .sheet(isPresented: $state.showDrafts) {
             DraftReviewView(drafts: state.pendingDrafts) {
