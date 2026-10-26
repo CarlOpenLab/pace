@@ -11,11 +11,11 @@
 
 ## 2. 仓库与协作
 
-- **主仓库**：https://github.com/cc-hearts/pace.git
+- **主仓库**：https://github.com/CarlOpenLab/pace.git
 - **当前分支**：`main`
 - **协作方式**（2026-10-26 改：不再走 Pull Request）：
   1. 有仓库写权限时，做完的改动直接提交并推送 `main`，不另开分支、不提交 Pull Request。
-  2. 没有仓库写权限时，Fork `cc-hearts/pace`，在 Fork 中开发，再向上游 `main` 推送。
+  2. 没有仓库写权限时，Fork `CarlOpenLab/pace`，在 Fork 中开发，再向上游 `main` 推送。
   3. 不绕 PR 不等于不用验：谁推送谁负责把该截的图、该量的数放进频道，出了问题是当场能说清哪一步漏的。半成品不推。
   4. 发布：版本号在三处一起改（`iosApp/project.yml` 的 `MARKETING_VERSION`、README 徽标、CHANGELOG），打完 tag 再推。
 - **当前仓库状态**：现有代码是 React + TypeScript + Vite 的离线优先 Web/PWA 原型，包含本地 IndexedDB、账单导入、分类和统计能力。目标产品需要逐步演进为原生 Android 与原生 iOS App；现有 Web 原型可作为业务规则、数据模型和交互验证参考，不能视为最终移动端实现。

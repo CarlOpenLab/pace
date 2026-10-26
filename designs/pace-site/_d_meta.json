@@ -1,0 +1,36 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "Landing Page": {
+      "versions": [
+        {
+          "path": "Landing Page.html",
+          "createdAt": "2026-10-26T17:49:16.115Z",
+          "status": "needs-review"
+        }
+      ]
+    },
+    "social-preview": {
+      "versions": [
+        {
+          "path": "social-preview.html",
+          "createdAt": "2026-10-26T17:49:16.486Z",
+          "status": "needs-review"
+        }
+      ]
+    },
+    "social-preview.png": {
+      "versions": [
+        {
+          "path": "social-preview.png",
+          "createdAt": "2026-10-26T17:49:16.867Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-10-26T17:49:16.117Z",
+  "updatedAt": "2026-10-26T17:49:16.867Z"
+}

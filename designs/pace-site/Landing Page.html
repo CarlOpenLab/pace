@@ -1,0 +1,513 @@
+<!doctype html>
+<!--
+  Pace — landing page design
+  Context: docs/DESIGN.md is the binding visual language (near-black & white paper,
+  hierarchy by typography only, color only where it must be: green = money in,
+  red = overspend, purple = AI entry; continuous corners 30/26/22/14; rounded
+  monospaced digits; no gradients, no shadows, hairline card borders).
+  Assumptions: English-first copy for an international audience; app UI mock shown
+  in English (current app copy is Chinese — swap if the page should mirror it);
+  default theme dark, user-toggleable; install story = GitHub Actions artifacts;
+  all figures in the mock (¥200 budget / ¥68 spent / ¥132 left) come from the
+  spec's own example so the page and docs tell one story.
+-->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0C0C0D">
+<title>Pace — Know what you can spend today.</title>
+<meta name="description" content="Pace is a daily-budget expense tracker for Android and iOS. One honest number for today. Local-first ledger, optional AI.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F2F2F4'/%3E%3Cpath d='M16 22h32M16 32h24M16 42h18' stroke='%230C0C0D' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --font-text:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC","Noto Sans SC",sans-serif;
+    --font-money:ui-rounded,"SF Pro Rounded",-apple-system,"Segoe UI",sans-serif;
+    --r-hero:30px; --r-card:26px; --r-list:22px; --r-block:14px;
+    --w-content:1060px;
+  }
+  [data-theme="dark"]{
+    --canvas:#0C0C0D; --card:#1A1A1C; --card2:#242426;
+    --ink:#F5F5F7; --ink2:#A6A6AD; --ink3:#7A7A80;
+    --line:rgba(255,255,255,.10); --soft:rgba(255,255,255,.10);
+    --accent:#F2F2F4; --onAccent:#0C0C0D;
+    --income:#4ED4A0; --danger:#FF8578; --ai:#B9A6FF;
+  }
+  [data-theme="light"]{
+    --canvas:#F7F7F7; --card:#FFFFFF; --card2:#F2F2F4;
+    --ink:#0E0E0F; --ink2:#6E6E73; --ink3:#8E8E93;
+    --line:rgba(0,0,0,.10); --soft:rgba(0,0,0,.06);
+    --accent:#1C1C1E; --onAccent:#FFFFFF;
+    --income:#12805C; --danger:#C0392B; --ai:#5B3FD9;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--font-text); background:var(--canvas); color:var(--ink);
+    -webkit-font-smoothing:antialiased; font-size:16px; line-height:1.7;
+  }
+  a{color:inherit; text-decoration:none}
+  .money{font-family:var(--font-money); font-variant-numeric:tabular-nums}
+  .wrap{max-width:var(--w-content); margin:0 auto; padding:0 20px}
+  @media(min-width:720px){ .wrap{padding:0 40px} }
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card)}
+  h2{font-size:clamp(26px,3.4vw,34px); font-weight:700; letter-spacing:-.01em; line-height:1.25; text-wrap:balance}
+  .lede{color:var(--ink2); max-width:56ch; text-wrap:pretty}
+  .section{padding:88px 0}
+  @media(max-width:720px){ .section{padding:64px 0} }
+  .kicker{font-size:13px; font-weight:600; color:var(--ink2); margin-bottom:14px}
+
+  /* nav */
+  nav{
+    position:sticky; top:0; z-index:50; background:var(--canvas);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-in{display:flex; align-items:center; gap:28px; height:60px}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; letter-spacing:-.01em}
+  .mark{width:26px; height:26px; border-radius:8px; background:var(--accent); display:grid; place-items:center; flex:none}
+  .mark svg{display:block}
+  .nav-links{display:flex; gap:24px; font-size:14px; color:var(--ink2); margin-left:auto}
+  .nav-links a:hover{color:var(--ink)}
+  @media(max-width:820px){ .nav-links{display:none} }
+  .nav-actions{display:flex; align-items:center; gap:10px; margin-left:auto}
+  @media(min-width:821px){ .nav-actions{margin-left:0} }
+  .theme-btn{
+    width:34px; height:34px; border-radius:17px; border:1px solid var(--line);
+    background:none; color:var(--ink2); cursor:pointer; display:grid; place-items:center;
+  }
+  .theme-btn:hover{color:var(--ink)}
+  [data-theme="dark"] .sun{display:block} [data-theme="dark"] .moon{display:none}
+  [data-theme="light"] .sun{display:none} [data-theme="light"] .moon{display:block}
+  .gh-btn{
+    height:34px; display:inline-flex; align-items:center; gap:7px; padding:0 14px;
+    border-radius:17px; background:var(--accent); color:var(--onAccent);
+    font-size:14px; font-weight:600;
+  }
+  .gh-btn svg{fill:var(--onAccent)}
+
+  /* hero */
+  .hero{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); gap:56px; align-items:center; padding:96px 0 104px}
+  @media(max-width:920px){ .hero{grid-template-columns:1fr; gap:64px; padding:64px 0; justify-items:center; text-align:center} .hero .lede{margin:0 auto} .hero-ctas{justify-content:center} }
+  .hero h1{font-size:clamp(40px,5.6vw,64px); font-weight:700; letter-spacing:-.025em; line-height:1.06; text-wrap:balance}
+  .hero .lede{font-size:17px; margin:24px 0 36px}
+  .hero-ctas{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+  .btn-primary{
+    height:50px; padding:0 26px; border-radius:var(--r-block); display:inline-flex; align-items:center;
+    background:var(--accent); color:var(--onAccent); font-size:16px; font-weight:600;
+  }
+  .btn-primary:active{opacity:.85}
+  .btn-quiet{height:50px; display:inline-flex; align-items:center; gap:6px; color:var(--ink2); font-size:15px; font-weight:500}
+  .btn-quiet:hover{color:var(--ink)}
+
+  /* phone mock */
+  .phone{
+    width:340px; max-width:88vw; border-radius:54px; border:10px solid #1C1C1E;
+    background:var(--canvas); overflow:hidden; position:relative; outline:1px solid rgba(255,255,255,.14);
+    box-shadow:0 30px 70px rgba(0,0,0,.22); margin:0 auto;
+  }
+  [data-theme="light"] .phone{outline-color:rgba(0,0,0,.14)}
+  .screen{padding:14px 20px 12px; min-height:640px; display:flex; flex-direction:column; position:relative}
+  .statusbar{display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; height:30px; position:relative}
+  .island{position:absolute; left:50%; transform:translateX(-50%); top:2px; width:106px; height:28px; border-radius:14px; background:#000}
+  .statusbar svg{display:block}
+  .app-title{text-align:center; font-size:15px; font-weight:600; margin:8px 0 14px}
+  .hero-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--r-hero); padding:22px;
+  }
+  .hc-row1{display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap}
+  .hc-date{font-size:12px; color:var(--ink2)}
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:99px;
+    background:var(--soft); color:var(--ink); font-size:11px; font-weight:600; white-space:nowrap;
+  }
+  .pill svg{display:block}
+  .hc-label{font-size:13px; font-weight:600; color:var(--ink2); margin-top:16px}
+  .hc-number{font-size:46px; font-weight:800; letter-spacing:-.02em; line-height:1.15}
+  .bar{height:8px; border-radius:4px; background:var(--line); margin:16px 0 14px; overflow:hidden}
+  .bar i{display:block; height:100%; width:34%; border-radius:4px; background:var(--accent)}
+  .hc-foot{font-size:12px; color:var(--ink2)}
+  .today-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:20px;
+    margin:16px 0 44px;
+  }
+  .tc-head{display:flex; justify-content:space-between; align-items:baseline}
+  .tc-title{font-size:15px; font-weight:600}
+  .tc-count{font-size:12px; color:var(--ink2)}
+  .tc-row{display:flex; align-items:center; gap:12px; padding:9px 0; min-height:52px}
+  .tc-row + .tc-row{border-top:1px solid var(--line)}
+  .icon-disc{width:34px; height:34px; border-radius:17px; background:var(--soft); display:grid; place-items:center; color:var(--ink); flex:none}
+  .tc-main{min-width:0; flex:1}
+  .tc-name{font-size:14px; font-weight:500; line-height:1.3}
+  .tc-sub{font-size:11px; color:var(--ink2); line-height:1.35}
+  .tc-amt{font-size:14px; font-weight:600; white-space:nowrap}
+  .tabbar{
+    margin-top:auto; display:grid; grid-template-columns:repeat(4,1fr); padding:10px 4px 4px;
+    border-top:1px solid var(--line);
+  }
+  .tab{display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; font-weight:500; color:var(--ink3)}
+  .tab.on{color:var(--ink)}
+  .tab svg{display:block}
+  .fab{
+    position:absolute; right:20px; bottom:74px; height:44px; padding:0 18px; border-radius:22px;
+    display:flex; align-items:center; gap:6px; font-size:15px; font-weight:600;
+    background:color-mix(in srgb, var(--accent) 86%, transparent);
+    -webkit-backdrop-filter:blur(18px) saturate(1.4); backdrop-filter:blur(18px) saturate(1.4);
+    color:var(--onAccent); border:1px solid var(--line);
+  }
+  .fab svg{stroke:var(--onAccent)}
+
+  /* how it works */
+  .steps{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:44px}
+  @media(max-width:820px){ .steps{grid-template-columns:1fr} }
+  .step{padding:20px}
+  .step-no{font-family:var(--font-money); font-variant-numeric:tabular-nums; font-size:30px; font-weight:800; color:var(--ink); letter-spacing:-.01em}
+  .step h3{font-size:16px; font-weight:600; margin:12px 0 6px}
+  .step p{font-size:14px; color:var(--ink2); text-wrap:pretty}
+
+  /* features */
+  .feat-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:44px}
+  @media(max-width:820px){ .feat-grid{grid-template-columns:1fr} }
+  .feat{padding:26px}
+  .feat h3{font-size:17px; font-weight:600; margin-bottom:8px}
+  .feat p{font-size:14px; color:var(--ink2); text-wrap:pretty}
+  .feat .tag{font-size:12px; font-weight:600; margin-bottom:14px; display:inline-block}
+
+  /* privacy */
+  .privacy{padding:30px}
+  @media(max-width:720px){ .privacy{padding:22px} }
+  .privacy-lines{margin-top:8px}
+  .pl{display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:8px 32px; padding:20px 0; border-top:1px solid var(--line)}
+  @media(max-width:720px){ .pl{grid-template-columns:1fr; gap:4px} }
+  .pl:first-child{border-top:none; padding-top:8px}
+  .pl h3{font-size:16px; font-weight:600}
+  .pl p{font-size:14px; color:var(--ink2); text-wrap:pretty}
+
+  /* shared core */
+  .core-diagram{display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1.35fr) auto minmax(0,1fr); gap:14px; align-items:center; margin-top:44px}
+  @media(max-width:820px){ .core-diagram{grid-template-columns:1fr} .core-diagram .arrow, .core-diagram .arrow.rev{transform:rotate(90deg); justify-content:center} }
+  .arrow.rev{transform:rotate(180deg)}
+  .core-block{border:1px solid var(--line); border-radius:var(--r-list); padding:20px; display:flex; flex-direction:column; justify-content:center; gap:4px}
+  .core-block b{font-size:16px; font-weight:600}
+  .core-block span{font-size:13px; color:var(--ink2)}
+  .core-block.main{background:var(--card); border-radius:var(--r-card); text-align:center; align-items:center; padding:26px 20px}
+  .core-block.main b{font-size:17px}
+  .arrow{display:flex; align-items:center; color:var(--ink3)}
+
+  /* install */
+  table{width:100%; border-collapse:collapse; margin-top:44px; font-size:14px}
+  th{font-size:12px; font-weight:600; color:var(--ink2); text-align:left; padding:0 16px 12px; border-bottom:1px solid var(--line)}
+  th:first-child, td:first-child{padding-left:0}
+  td{padding:16px; border-bottom:1px solid var(--line); vertical-align:top}
+  td:first-child{font-weight:600}
+  td .cell-sub{display:block; font-size:12px; color:var(--ink2); font-weight:400; margin-top:2px}
+  td code, .inline-code{
+    font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12.5px; background:var(--soft); padding:3px 8px; border-radius:7px; white-space:nowrap;
+  }
+  .install-note{margin-top:18px; font-size:13px; color:var(--ink2)}
+
+  /* closing band */
+  .closing{background:var(--ink); color:var(--canvas); border-radius:var(--r-hero); padding:64px 40px; text-align:center}
+  @media(max-width:720px){ .closing{padding:48px 22px} }
+  .closing h2{font-size:clamp(28px,4vw,40px); letter-spacing:-.02em}
+  .closing p{color:color-mix(in srgb, var(--canvas) 72%, var(--ink)); margin:14px auto 32px; max-width:52ch; text-wrap:pretty}
+  .closing .btn-primary{background:var(--canvas); color:var(--ink)}
+  .closing .btn-quiet{color:color-mix(in srgb, var(--canvas) 72%, var(--ink))}
+  .closing .hero-ctas{justify-content:center}
+
+  footer{border-top:1px solid var(--line); margin-top:96px}
+  .foot-in{display:flex; flex-wrap:wrap; gap:16px 32px; align-items:center; padding:36px 0 44px; font-size:13px; color:var(--ink2)}
+  .foot-brand{display:flex; align-items:center; gap:10px; font-weight:600; color:var(--ink); font-size:14px}
+  .foot-links{display:flex; gap:20px; flex-wrap:wrap; margin-left:auto}
+  .foot-links a:hover{color:var(--ink)}
+  .foot-note{width:100%; font-size:12px; color:var(--ink3)}
+</style>
+</head>
+<body>
+
+<nav data-screen-label="Nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Pace home">
+      <span class="mark" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M2 7h7M2 10.5h4" stroke="var(--onAccent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      Pace
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#install">Install</a>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle light or dark theme">
+        <svg class="sun" width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="3.2"/><path d="M7.5 1v1.6M7.5 12.4V14M1 7.5h1.6M12.4 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M12.1 2.9L11 4M4 11l-1.1 1.1"/></svg>
+        <svg class="moon" width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 9.3A5.8 5.8 0 0 1 5.7 2a5.8 5.8 0 1 0 7.3 7.3Z"/></svg>
+      </button>
+      <a class="gh-btn" href="https://github.com/CarlOpenLab/pace" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="wrap hero" id="top" data-screen-label="Hero">
+  <div>
+    <h1>Know what you can spend today.</h1>
+    <p class="lede">Pace turns your day into one honest number: what is left of your daily budget. Logging takes seconds, the ledger never leaves your device, and AI only helps when you ask it to.</p>
+    <div class="hero-ctas">
+      <a class="btn-primary" href="#install">Get early builds</a>
+      <a class="btn-quiet" href="https://github.com/CarlOpenLab/pace" target="_blank" rel="noopener">View source
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h8M7 3l3.5 3.5L7 10"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="phone" data-screen-label="Today screen mock" role="img" aria-label="Pace Today screen: 132.00 left to spend of a 200.00 daily budget">
+    <div class="screen">
+      <div class="statusbar">
+        <span class="money">9:41</span>
+        <span class="island" aria-hidden="true"></span>
+        <span aria-hidden="true">
+          <svg width="46" height="12" viewBox="0 0 46 12" fill="none"><rect x="0" y="4" width="2.6" height="7" rx="1" fill="var(--ink)"/><rect x="4" y="2.5" width="2.6" height="8.5" rx="1" fill="var(--ink)"/><rect x="8" y="1" width="2.6" height="10" rx="1" fill="var(--ink)"/><rect x="14" y="1.5" width="17" height="9" rx="2.5" stroke="var(--ink)" stroke-opacity=".4"/><rect x="15.8" y="3.3" width="11" height="5.4" rx="1.2" fill="var(--ink)"/><rect x="32.5" y="4.2" width="1.6" height="3.6" rx=".8" fill="var(--ink)" fill-opacity=".4"/></svg>
+        </span>
+      </div>
+      <div class="app-title">Pace</div>
+
+      <div class="hero-card">
+        <div class="hc-row1">
+          <span class="hc-date money">Today · Oct 27</span>
+          <span class="pill">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5.8l1.1 1.1h1.6l.5 1.6 1.4.9-.4 1.6.4 1.6-1.4.9-.5 1.6H6.6L5.5 11 4.4 9.9H2.8l-.5-1.6L.9 7.4l.4-1.6-.4-1.6 1.4-.9.5-1.6h1.6L5.5.8Z" transform="scale(.95)"/><path d="M3.7 5.5l1.3 1.3 2.3-2.5"/></svg>
+            Within budget
+          </span>
+        </div>
+        <div class="hc-label">Left to spend</div>
+        <div class="hc-number money">¥132.00</div>
+        <div class="bar"><i></i></div>
+        <div class="hc-foot money">Budget ¥200.00 · Spent ¥68.00</div>
+      </div>
+
+      <div class="today-card">
+        <div class="tc-head"><span class="tc-title">Today</span><span class="tc-count money">2</span></div>
+        <div class="tc-row">
+          <span class="icon-disc" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M4 1.5v4M2.6 1.5v3a1.4 1.4 0 0 0 2.8 0v-3M4 7.5v6M10.7 1.5c-.9.7-1.4 2-1.4 3.6 0 1 .6 1.6 1.4 1.6v6.8M10.7 1.5V6.7"/></svg>
+          </span>
+          <span class="tc-main">
+            <span class="tc-name">Lunch</span><br>
+            <span class="tc-sub">Food &amp; drink · 12:30</span>
+          </span>
+          <span class="tc-amt money">−¥32.00</span>
+        </div>
+        <div class="tc-row">
+          <span class="icon-disc" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.9"/><circle cx="7.5" cy="7.5" r="1.2"/><path d="M7.5 1.6v1.9M13.2 8.4l-1.9-.5M9.9 12.5l-1.2-1.6"/></svg>
+          </span>
+          <span class="tc-main">
+            <span class="tc-name">Bus</span><br>
+            <span class="tc-sub">Transport · 08:15</span>
+          </span>
+          <span class="tc-amt money">−¥36.00</span>
+        </div>
+      </div>
+
+      <div class="tabbar" aria-hidden="true">
+        <span class="tab on">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8.6 10 3l7 5.6V16a1 1 0 0 1-1 1h-4v-4.6H8V17H4a1 1 0 0 1-1-1V8.6Z"/></svg>
+          Today
+        </span>
+        <span class="tab">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h9"/></svg>
+          Bills
+        </span>
+        <span class="tab">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 17v-5M10 17V6M16.5 17v-8"/></svg>
+          Stats
+        </span>
+        <span class="tab">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/></svg>
+          Settings
+        </span>
+      </div>
+
+      <div class="fab" aria-hidden="true">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M6.5 1.5v10M1.5 6.5h10"/></svg>
+        Add
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="wrap section" id="how" data-screen-label="How it works">
+  <p class="kicker">How it works</p>
+  <h2>One number, three moves.</h2>
+  <div class="steps">
+    <div class="card step">
+      <div class="step-no money">01</div>
+      <h3>Set today's budget</h3>
+      <p>One amount per day. Change it starting tomorrow — Pace never rewrites your history, and nothing rolls over unless you decide it should.</p>
+    </div>
+    <div class="card step">
+      <div class="step-no money">02</div>
+      <h3>Log in seconds</h3>
+      <p>A floating button opens a two-tap form. For every entry you choose whether it counts toward today — refunds link back to the bill they reverse.</p>
+    </div>
+    <div class="card step">
+      <div class="step-no money">03</div>
+      <h3>See what's left</h3>
+      <p>Budget minus what you chose to count today. Overspent? The number turns red and says so. No smoothing, no spin.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="features" data-screen-label="Features">
+  <p class="kicker">Features</p>
+  <h2>Small app, few opinions, held firmly.</h2>
+  <div class="feat-grid">
+    <div class="card feat">
+      <span class="tag money" style="color:var(--income)">Money in is green</span>
+      <h3>A budget you can trust</h3>
+      <p>Today's remaining = budget − the net spend you chose to count. Transfers and card repayments are kept apart from spending, refunds don't double-count, and every amount is stored as an integer of the smallest currency unit — never a floating-point guess.</p>
+    </div>
+    <div class="card feat">
+      <span class="tag">Stats, not sermons</span>
+      <h3>Numbers with their receipts</h3>
+      <p>Today's bills, week and month totals, category ranking, overspend log — with budget-in spend and all spend kept separate. Every figure is computed by deterministic code on your device; an AI may explain a number, never invent one.</p>
+    </div>
+    <div class="card feat">
+      <span class="tag" style="color:var(--ai)">AI, optional by default</span>
+      <h3>It drafts. You confirm.</h3>
+      <p>Turn on the assistant and it can turn one sentence into a bill draft, or explain a figure it is shown. It cannot write to your ledger without your confirmation, cannot bypass it, and is never the source of truth.</p>
+    </div>
+    <div class="card feat">
+      <span class="tag">Local-first</span>
+      <h3>Your ledger, literally yours</h3>
+      <p>No account, no cloud ledger, no analytics. Everything works offline, and a full-fidelity JSON export is one tap away — the same format, versioned, that imports cleanly on a new device.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="privacy" data-screen-label="Privacy">
+  <div class="card privacy">
+    <p class="kicker">Privacy</p>
+    <h2>Local-first is a promise,<br>not a setting.</h2>
+    <div class="privacy-lines">
+      <div class="pl">
+        <h3>There is no cloud to breach.</h3>
+        <p>The ledger lives in an on-device database. No account is required, no copy is uploaded, and logs never contain your bills, notes, or keys. Deleting the app deletes the data — by design, and stated where you'll see it.</p>
+      </div>
+      <div class="pl">
+        <h3>AI has a fixed job description.</h3>
+        <p>Draft input, explain output. Off until you turn it on, unable to write without your confirmation, and the gateway it talks to is not allowed to keep your ledger.</p>
+      </div>
+      <div class="pl">
+        <h3>Export is the escape hatch.</h3>
+        <p>A versioned JSON format, documented publicly, with every bill, category, and budget in it. Your data should outlive the app — and the format shouldn't be a secret.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="core" data-screen-label="Shared core">
+  <p class="kicker">Under the hood</p>
+  <h2>Two native apps. One arithmetic.</h2>
+  <p class="lede" style="margin-top:14px">Pace for Android is Kotlin + Compose. Pace for iOS is Swift + SwiftUI. Neither shares a line of UI with the other. What they share is the part that must never disagree — budget math, money and date rules, import/export, duplicate detection — a Kotlin Multiplatform core with 48 fixed acceptance tests both platforms must pass.</p>
+  <div class="core-diagram">
+    <div class="core-block">
+      <b>Android</b>
+      <span>Kotlin · Jetpack Compose · Room · Keystore · WorkManager</span>
+    </div>
+    <div class="arrow" aria-hidden="true">
+      <svg width="20" height="12" viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h17M14 1.5 18.5 6 14 10.5"/></svg>
+    </div>
+    <div class="core-block main">
+      <b>shared</b>
+      <span>Kotlin Multiplatform — budget engine · money rules · import/export · dedupe · 48 acceptance tests</span>
+    </div>
+    <div class="arrow rev" aria-hidden="true">
+      <svg width="20" height="12" viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h17M14 1.5 18.5 6 14 10.5"/></svg>
+    </div>
+    <div class="core-block">
+      <b>iOS</b>
+      <span>Swift · SwiftUI · SwiftData · Keychain · WidgetKit · App Intents</span>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="install" data-screen-label="Install">
+  <p class="kicker">Install</p>
+  <h2>Early builds, straight from CI.</h2>
+  <p class="lede" style="margin-top:14px">Pace is in active development (v0.1.0). Every push produces installable artifacts on GitHub Actions — no store listing yet, so builds are installed by hand.</p>
+  <table>
+    <thead>
+      <tr><th>Build</th><th>Artifact</th><th>Install with</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Android<span class="cell-sub">debug APK</span></td>
+        <td><code>pace-android-debug-apk</code></td>
+        <td>Download from a run's Artifacts, install on the device</td>
+      </tr>
+      <tr>
+        <td>iOS<span class="cell-sub">unsigned IPA</span></td>
+        <td><code>pace-ios-unsigned-ipa</code></td>
+        <td>Self-sign with AltStore / Sideloadly</td>
+      </tr>
+      <tr>
+        <td>iOS Simulator<span class="cell-sub">simulator app</span></td>
+        <td><code>pace-ios-simulator-app</code></td>
+        <td>Unzip, drag into Simulator</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="install-note">Grab them from the <a href="https://github.com/CarlOpenLab/pace/actions" target="_blank" rel="noopener" style="text-decoration:underline">Actions page</a> of the latest run. Building from source? The <span class="inline-code">README</span> has the Gradle and XcodeGen commands.</p>
+</section>
+
+<section class="wrap" data-screen-label="Closing">
+  <div class="closing">
+    <h2>Know what you can spend today.</h2>
+    <p>Set tomorrow's budget tonight. Log lunch in four seconds. And let one quiet number answer the only question a daily budget needs to answer.</p>
+    <div class="hero-ctas">
+      <a class="btn-primary" href="#install">Get early builds</a>
+      <a class="btn-quiet" href="https://github.com/CarlOpenLab/pace" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer data-screen-label="Footer">
+  <div class="wrap foot-in">
+    <span class="foot-brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M2 7h7M2 10.5h4" stroke="var(--onAccent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      Pace
+    </span>
+    <div class="foot-links">
+      <a href="https://github.com/CarlOpenLab/pace" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/CarlOpenLab/pace/blob/main/PLAN.md" target="_blank" rel="noopener">Product plan</a>
+      <a href="https://github.com/CarlOpenLab/pace/blob/main/docs/DESIGN.md" target="_blank" rel="noopener">Design spec</a>
+      <a href="https://github.com/CarlOpenLab/pace/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+    </div>
+    <span class="foot-note">Local-first · No account · AI optional · Works offline</span>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var root = document.documentElement;
+    var saved = null;
+    try { saved = localStorage.getItem('pace-theme'); } catch(e){}
+    if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
+    document.getElementById('themeBtn').addEventListener('click', function(){
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('pace-theme', next); } catch(e){}
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', next === 'dark' ? '#0C0C0D' : '#F7F7F7');
+    });
+  })();
+</script>
+</body>
+</html>

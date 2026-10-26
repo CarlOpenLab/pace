@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  Pace — GitHub social preview (1280×640, fixed export size)
+  Upload as repo Settings → General → Social preview. Same paper language as
+  docs/DESIGN.md; dark canvas for legibility in both light/dark GitHub UIs.
+  Render to social-preview.png (1280×640) and keep it under 1MB.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pace — social preview 1280×640</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{width:1280px;height:640px;overflow:hidden;background:#0C0C0D;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC",sans-serif;
+    color:#F5F5F7;display:grid;place-items:center}
+  .money{font-family:ui-rounded,"SF Pro Rounded",-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+  .stage{position:relative;width:1280px;height:640px;padding:72px 80px;display:flex;align-items:center;gap:64px}
+  .copy{flex:1;min-width:0}
+  .brand{display:flex;align-items:center;gap:16px}
+  .mark{width:52px;height:52px;border-radius:15px;background:#F2F2F4;display:grid;place-items:center}
+  .wordmark{font-size:34px;font-weight:700;letter-spacing:-.01em}
+  h1{font-size:74px;font-weight:700;letter-spacing:-.028em;line-height:1.06;margin:44px 0 22px;text-wrap:balance}
+  .sub{font-size:23px;color:#A6A6AD;line-height:1.55;max-width:30ch;text-wrap:pretty}
+  .meta{display:flex;gap:12px;margin-top:40px;flex-wrap:wrap}
+  .chip{font-size:16px;font-weight:600;color:#F5F5F7;background:rgba(255,255,255,.10);border-radius:99px;padding:9px 18px}
+  .card{flex:none;width:420px;background:#1A1A1C;border:1px solid rgba(255,255,255,.10);border-radius:30px;padding:34px 30px}
+  .row1{display:flex;justify-content:space-between;align-items:center}
+  .date{font-size:17px;color:#A6A6AD}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:99px;background:rgba(255,255,255,.10);font-size:14px;font-weight:600}
+  .label{font-size:18px;font-weight:600;color:#A6A6AD;margin-top:26px}
+  .number{font-size:76px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  .bar{height:10px;border-radius:5px;background:rgba(255,255,255,.10);margin:24px 0 18px;overflow:hidden}
+  .bar i{display:block;height:100%;width:34%;background:#F2F2F4;border-radius:5px}
+  .foot{font-size:16px;color:#A6A6AD}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="copy">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 7h18M4 13h12.5M4 19h7" stroke="#0C0C0D" stroke-width="3.4" stroke-linecap="round"/></svg>
+        </span>
+        <span class="wordmark">Pace</span>
+      </div>
+      <h1>Know what you can spend today.</h1>
+      <p class="sub">A daily-budget expense tracker for Android &amp; iOS. Local-first ledger, optional AI.</p>
+      <div class="meta">
+        <span class="chip">Local-first</span>
+        <span class="chip">No account</span>
+        <span class="chip">AI optional</span>
+      </div>
+    </div>
+    <div class="card" aria-hidden="true">
+      <div class="row1">
+        <span class="date money">Today · Oct 27</span>
+        <span class="pill">Within budget</span>
+      </div>
+      <div class="label">Left to spend</div>
+      <div class="number money">¥132.00</div>
+      <div class="bar"><i></i></div>
+      <div class="foot money">Budget ¥200.00 · Spent ¥68.00</div>
+    </div>
+  </div>
+</body>
+</html>
