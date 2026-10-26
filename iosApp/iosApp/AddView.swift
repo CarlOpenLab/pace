@@ -58,6 +58,11 @@ struct AddView: View {
     /// 这张草稿已经灌进手动表单一次；再切回来不重复灌，免得覆盖用户改过的值。
     @State private var pumpedDraftId: String?
 
+    /// 失败卡在滚动坐标系里的框、可视高度、用户有没有自己拖过。
+    @State private var failureCardFrame: CGRect = .zero
+    @State private var viewportHeight: CGFloat = 0
+    @State private var userScrolled = false
+
     /// 金额那一行：卡片内容宽、并排所需的宽。
     @State private var cardContentWidth: CGFloat = 0
     @State private var amountRowRulerWidth: CGFloat = 0
@@ -140,9 +145,29 @@ struct AddView: View {
                 // 只能让整页把它带进视野。
                 .onChange(of: failure != nil) { _, hasFailure in
                     guard hasFailure else { return }
-                    scrollToFailure(proxy)
+                    // 让这一帧先量出卡在自己坐标系里的位置，再决定滚不滚。
+                    DispatchQueue.main.async { scrollToFailureIfNeeded(proxy) }
+                }
+                .coordinateSpace(name: Self.scrollSpace)
+                .background(
+                    GeometryReader { g in
+                        Color.clear.preference(key: AddViewportHeightKey.self, value: g.size.height)
+                    }
+                )
+                // 用户自己一拖，就不再补第二下：自动滚是为了把卡带进视野，
+                // 不是为了把人从他滚到的位置拽回来。
+                // 用滚动阶段而不是拖拽手势判：ScrollView 的拖拽被它自己的 pan 吃掉，
+                // 手势挂在外面收不全；阶段里的 tracking/interacting 就是手指在动。
+                .onScrollPhaseChange { _, phase in
+                    guard phase == .tracking || phase == .interacting else { return }
+                    userScrolled = true
+                    #if DEBUG
+                    print("SCROLLDBG user drag \(phase)")
+                    #endif
                 }
             }
+            .onPreferenceChange(AddViewportHeightKey.self) { viewportHeight = $0 }
+            .onPreferenceChange(FailureCardFrameKey.self) { failureCardFrame = $0 }
             .scrollDismissesKeyboard(.interactively)
             .background(PaceColor.canvas.ignoresSafeArea())
             // 切换器钉在导航栏下面，不跟内容滚。视觉上距导航栏 8、距卡片 12；
@@ -241,6 +266,14 @@ struct AddView: View {
         if let failure {
             failureCard(failure)
                 .id(Self.failureAnchor)
+                .background(
+                    GeometryReader { g in
+                        Color.clear.preference(
+                            key: FailureCardFrameKey.self,
+                            value: g.frame(in: .named(Self.scrollSpace))
+                        )
+                    }
+                )
         }
         if let draft = sentenceDraft {
             inlineBlock(draft)
@@ -421,12 +454,51 @@ struct AddView: View {
     }
 
     private static let failureAnchor = "add.failure"
+    private static let scrollSpace = "add.scroll"
+
+    /// 第二拍的间隔。调试时可以用 `-uiSecondScroll 3` 把它拉长，
+    /// 好在中间插一次拖拽，验「用户拖过就不再补第二下」。
+    private static var secondScrollDelay: Double {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-uiSecondScroll"), i + 1 < args.count,
+           let value = Double(args[i + 1]) { return value }
+        #endif
+        return 0.35
+    }
+
+    /// 卡已经整张看得见就不滚——默认字号下这张卡本来就在画面里，
+    /// 让人一失败页面就跳一下，比不滚更糟（Ato 加的第一条）。
+    /// 看得见的时候不滚，只在它被挡住时才滚，于是「跳不跳」只取决于它有没有被挡。
+    private func isFailureCardFullyVisible() -> Bool {
+        guard failureCardFrame != .zero, viewportHeight > 0 else { return false }
+        return failureCardFrame.minY >= 0 && failureCardFrame.maxY <= viewportHeight
+    }
 
     /// 滚两次：第一次在状态刚变、键盘还在往下退的时候，第二次等布局落定。
     /// 只滚一次会算在键盘的临时高度上，落下来的位置差一截。
-    private func scrollToFailure(_ proxy: ScrollViewProxy) {
+    /// 第二下在用户已经自己拖过的情况下取消（Ato 加的第二条）。
+    private func scrollToFailureIfNeeded(_ proxy: ScrollViewProxy) {
+        #if DEBUG
+        print("SCROLLDBG first scroll needed: visible=\(isFailureCardFullyVisible()) frame=\(failureCardFrame) viewport=\(viewportHeight)")
+        #endif
+        guard !isFailureCardFullyVisible() else { return }
+        userScrolled = false
         proxy.scrollTo(Self.failureAnchor, anchor: .top)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        #if DEBUG
+        // 验「用户拖过就不再补第二下」用：在第二拍之前把标记按下去，模拟一次真实拖拽。
+        if ProcessInfo.processInfo.arguments.contains("-uiSimulateDrag") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.secondScrollDelay * 0.5) {
+                userScrolled = true
+                print("SCROLLDBG simulated drag")
+            }
+        }
+        #endif
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.secondScrollDelay) {
+            #if DEBUG
+            print("SCROLLDBG second scroll: userScrolled=\(userScrolled) visible=\(isFailureCardFullyVisible())")
+            #endif
+            guard !userScrolled, !isFailureCardFullyVisible() else { return }
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.failureAnchor, anchor: .top)
             }
