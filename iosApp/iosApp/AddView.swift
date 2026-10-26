@@ -144,8 +144,16 @@ struct AddView: View {
                 // 一句话模式不放保存：值在草稿卡上，动作就在草稿卡上。
                 if !showsSentence {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(Copy.Add.save) { save(force: false) }
-                            .disabled(!isAmountValid)
+                        Button {
+                            save(force: false)
+                        } label: {
+                            // 玻璃上的字系统会自己调暗：暗色下不可用时只有 2.18:1。
+                            // 可读性不交给系统猜，不可用时显式给 ink2（5.84:1）。
+                            Text(Copy.Add.save)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(isAmountValid ? PaceColor.ink : PaceColor.ink2)
+                        }
+                        .disabled(!isAmountValid)
                     }
                 }
             }

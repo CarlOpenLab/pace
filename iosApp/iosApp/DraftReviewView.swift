@@ -63,8 +63,14 @@ struct DraftReviewView: View {
             // 强调留给草稿卡上的「记上」。
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(saveTitle) { saveAll() }
-                        .disabled(!canSave)
+                    Button {
+                        saveAll()
+                    } label: {
+                        Text(saveTitle)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(canSave ? PaceColor.ink : PaceColor.ink2)
+                    }
+                    .disabled(!canSave)
                 }
             }
             .safeAreaInset(edge: .bottom) {
