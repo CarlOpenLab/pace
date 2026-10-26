@@ -93,3 +93,14 @@ jobs:
           path: build/Pace-simulator-app.zip
           if-no-files-found: error
           retention-days: 14
+
+  type-scale:
+    name: 字号跟系统走（不许写死）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 写死的字号与 minimumScaleFactor 必须为 0 处
+        # 四条正则、九种写法、外加一次自检：脚本先拿一份故意违规的样本跑一遍，
+        # 抓不到就直接红——一个永远说干净的检查比没有检查更坏。
+        run: python3 scripts/check-type-scale.py

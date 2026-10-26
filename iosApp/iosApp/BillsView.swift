@@ -47,6 +47,9 @@ private struct BillDayGroup: Identifiable {
 struct BillsView: View {
     @EnvironmentObject private var state: AppState
 
+    /// 分类图形的圆跟着字号长（封顶 1.3 倍）：圆是固定的，字一大图形会顶到圆边上。
+    @ScaledMetric(relativeTo: .body) private var iconCircle: CGFloat = 34
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var keyword = ""
@@ -60,9 +63,20 @@ struct BillsView: View {
     @State private var undoDismissTask: Task<Void, Never>?
 
     private struct UndoItem {
+        enum Kind {
+            /// 删掉了，可以撤销。
+            case deleted
+            /// 撤销成功，恢复回来了。
+            case restored
+            /// 删除本身没成：这笔还在账本里。
+            case deleteFailed
+            /// 撤销没成：这笔还是删掉的，还能再点一次。
+            case undoFailed
+        }
+
         let txn: LedgerTransaction
         let note: String
-        let restored: Bool
+        let kind: Kind
     }
 
     var body: some View {
@@ -104,13 +118,9 @@ struct BillsView: View {
             .overlay(alignment: .bottom) {
                 if let undoItem {
                     BillsUndoBar(
-                        message: undoItem.restored
-                            ? Copy.Delete.restored
-                            : Copy.Delete.toast(note: undoItem.note),
-                        accessibilityMessage: undoItem.restored
-                            ? Copy.Delete.restored
-                            : Copy.Delete.toastAccessibility(note: undoItem.note),
-                        canUndo: !undoItem.restored,
+                        message: undoBarMessage(undoItem),
+                        accessibilityMessage: undoBarAccessibility(undoItem),
+                        canUndo: undoItem.kind == .deleted || undoItem.kind == .undoFailed,
                         onUndo: undoDelete
                     )
                     .padding(.horizontal, PaceSpace.screen)
@@ -206,7 +216,7 @@ struct BillsView: View {
 
                     if index < 2 {
                         Rectangle()
-                            .fill(PaceColor.line)
+                            .fill(PaceColor.divider)
                             .frame(height: 1)
                             .padding(.leading, PaceSpace.cardPadding + 46)
                     }
@@ -242,29 +252,110 @@ struct BillsView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(PaceColor.canvas)
-        .contentMargins(.bottom, 76, for: .scrollContent)
+        .contentMargins(.bottom, PaceSpace.fabClearance, for: .scrollContent)
         .tracksFabScroll()
     }
 
     private func dayHeader(_ group: BillDayGroup) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(dayTitle(group.date))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(PaceColor.ink2)
-                .accessibilityAddTraits(.isHeader)
-
-            Spacer(minLength: 8)
-
-            Text(netLabel(group.netMinor))
-                .font(.system(size: 12))
-                .monospacedDigit()
-                .foregroundStyle(PaceColor.ink2)
+        // 日期和当天净额都是 caption（12 点，默认字号下和以前一个像素都不差）。
+        // 大字号下一排放不下就上下两行：这两个数都短，谁也不该被截。
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                dayTitleText(group)
+                Spacer(minLength: 8)
+                netLabelText(group)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                dayTitleText(group)
+                netLabelText(group)
+            }
         }
         .padding(.top, PaceSpace.cardGap)
         .padding(.bottom, 6)
         .listRowInsets(EdgeInsets(top: 0, leading: PaceSpace.screen, bottom: 0, trailing: PaceSpace.screen))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+    }
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private func dayTitleText(_ group: BillDayGroup) -> some View {
+        Text(dayTitle(group.date))
+            .font(PaceType.caption.weight(.semibold))
+            .foregroundStyle(PaceColor.ink2)
+            .accessibilityAddTraits(.isHeader)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func netLabelText(_ group: BillDayGroup) -> some View {
+        Text(netLabel(group.netMinor))
+            .font(PaceType.caption)
+            .monospacedDigit()
+            .foregroundStyle(PaceColor.ink2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// 大字号下：金额自己占一整行，时间换行让位。和首页同一条规则（Colo 写进表的）：
+    /// 金额是这一行唯一必须读准的东西，不退让。
+    private func stackedRowContent(_ txn: LedgerTransaction) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: PaceSpace.inner) {
+                rowIcon(txn)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rowTitle(txn))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(PaceColor.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(rowSubtitle(txn))
+                        .font(.footnote)
+                        .foregroundStyle(PaceColor.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Text(amountLabel(txn))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(amountColor(txn))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private func rowIcon(_ txn: LedgerTransaction) -> some View {
+        ZStack {
+            Circle()
+                .fill(PaceColor.card2)
+                .frame(width: min(iconCircle, 34 * 1.3), height: min(iconCircle, 34 * 1.3))
+            Image(systemName: categoryIconName(txn.category))
+                .paceFont(15, .semibold, relativeTo: .body, cap: 1.3)
+                .foregroundStyle(PaceColor.ink)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func compactRowContent(_ txn: LedgerTransaction) -> some View {
+        HStack(spacing: PaceSpace.inner) {
+            rowIcon(txn)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rowTitle(txn))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(PaceColor.ink)
+                    .lineLimit(1)
+                Text(rowSubtitle(txn))
+                    .font(.footnote)
+                    .foregroundStyle(PaceColor.ink2)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(amountLabel(txn))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(amountColor(txn))
+                .lineLimit(1)
+        }
     }
 
     private func txnRow(
@@ -276,36 +367,12 @@ struct BillsView: View {
             Button {
                 editingTxnId = txn.id
             } label: {
-                HStack(spacing: PaceSpace.inner) {
-                    ZStack {
-                        Circle()
-                            .fill(PaceColor.card2)
-                            .frame(width: 34, height: 34)
-                        Image(systemName: categoryIconName(txn.category))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(PaceColor.ink)
+                Group {
+                    if typeSize.isAccessibilitySize {
+                        stackedRowContent(txn)
+                    } else {
+                        compactRowContent(txn)
                     }
-                    .accessibilityHidden(true)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(rowTitle(txn))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(PaceColor.ink)
-                            .lineLimit(1)
-                        Text(rowSubtitle(txn))
-                            .font(.footnote)
-                            .foregroundStyle(PaceColor.ink2)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    Text(amountLabel(txn))
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(amountColor(txn))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
                 }
                 .padding(.horizontal, PaceSpace.cardPadding)
                 .padding(.vertical, 10)
@@ -317,7 +384,7 @@ struct BillsView: View {
 
             if !isLast {
                 Rectangle()
-                    .fill(PaceColor.line)
+                    .fill(PaceColor.divider)
                     .frame(height: 1)
                     .padding(.leading, PaceSpace.cardPadding + 46)
             }
@@ -332,6 +399,9 @@ struct BillsView: View {
             } label: {
                 Label(Copy.Delete.action, systemImage: "trash")
             }
+            // 全局 tint 是 ink（暗色下近白），滑动动作的底会跟着变成白的 ——
+            // 白底白字。凡是 destructive 控件都显式给红，不许吃全局 tint。
+            .tint(PaceColor.dangerFill)
         }
     }
 
@@ -423,22 +493,54 @@ struct BillsView: View {
     private func delete(_ txn: LedgerTransaction) {
         let deleted = LedgerStore.shared.api.deleteTransaction(id: txn.id)
         reload()
-        guard let deleted else { return }
+        guard let deleted else {
+            // 没删掉就得说：用户以为这笔已经没了，比什么都不说更糟。
+            presentFailure(txn: txn)
+            return
+        }
         presentUndo(for: deleted)
+    }
+
+    /// 删除没成功：账本没变，浮条上不挂「撤销」——没有可撤销的事。
+    private func presentFailure(txn: LedgerTransaction) {
+        undoDismissTask?.cancel()
+        let note = txn.note.isEmpty ? txn.category : txn.note
+        withAnimation(undoAnimation) {
+            undoItem = UndoItem(txn: txn, note: note, kind: .deleteFailed)
+        }
+        scheduleUndoDismiss(after: 6)
+    }
+
+    private func undoBarMessage(_ item: UndoItem) -> String {
+        switch item.kind {
+        case .deleted: return Copy.Delete.toast(note: item.note)
+        case .restored: return Copy.Delete.restored
+        case .deleteFailed: return Copy.Failed.Delete.body
+        case .undoFailed: return Copy.Failed.Undo.body
+        }
+    }
+
+    private func undoBarAccessibility(_ item: UndoItem) -> String {
+        switch item.kind {
+        case .deleted: return Copy.Delete.toastAccessibility(note: item.note)
+        case .restored: return Copy.Delete.restored
+        case .deleteFailed: return Copy.Failed.Delete.title + "，" + Copy.Failed.Delete.body
+        case .undoFailed: return Copy.Failed.Undo.title + "，" + Copy.Failed.Undo.body
+        }
     }
 
     private func presentUndo(for txn: LedgerTransaction) {
         undoDismissTask?.cancel()
         let note = txn.note.isEmpty ? txn.category : txn.note
         withAnimation(undoAnimation) {
-            undoItem = UndoItem(txn: txn, note: note, restored: false)
+            undoItem = UndoItem(txn: txn, note: note, kind: .deleted)
         }
         scheduleUndoDismiss(after: 8)
     }
 
     /// 撤销 = 用原数据重新入账（U3）。
     private func undoDelete() {
-        guard let item = undoItem, !item.restored else { return }
+        guard let item = undoItem, item.kind == .deleted || item.kind == .undoFailed else { return }
         let deleted = item.txn
 
         let result = LedgerStore.shared.api.saveTransaction(
@@ -457,11 +559,18 @@ struct BillsView: View {
             )
         )
 
-        guard result.transaction != nil else { return }
+        guard result.transaction != nil else {
+            // 撤销失败：账本确实变了（这笔没了），口径不能写「没有变化」。
+            withAnimation(undoAnimation) {
+                undoItem = UndoItem(txn: deleted, note: item.note, kind: .undoFailed)
+            }
+            scheduleUndoDismiss(after: 8)
+            return
+        }
 
         reload()
         withAnimation(undoAnimation) {
-            undoItem = UndoItem(txn: deleted, note: item.note, restored: true)
+            undoItem = UndoItem(txn: deleted, note: item.note, kind: .restored)
         }
         scheduleUndoDismiss(after: 2)
     }
@@ -620,7 +729,7 @@ private struct BillsUndoBar: View {
     private var bar: some View {
         HStack(spacing: PaceSpace.inner) {
             Text(message)
-                .font(.system(size: 14, weight: .semibold))
+                .paceFont(14, .semibold)
                 .foregroundStyle(PaceColor.ink)
                 .lineLimit(1)
                 .accessibilityLabel(Text(accessibilityMessage))
@@ -631,7 +740,7 @@ private struct BillsUndoBar: View {
                 Button(Copy.Delete.undo) {
                     onUndo()
                 }
-                .font(.system(size: 14, weight: .semibold))
+                .paceFont(14, .semibold)
                 .foregroundStyle(PaceColor.ink)
                 .buttonStyle(.plain)
                 .frame(minHeight: 44)

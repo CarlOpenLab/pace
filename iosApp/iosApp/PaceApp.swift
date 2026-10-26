@@ -47,10 +47,8 @@ final class AppState: ObservableObject {
     static let shared = AppState()
 
     @Published var tab: AppTab = .home
+    /// 唯一入口：主按钮永远打开同一页「记一笔」，页里再分一句话 / 手动。
     @Published var showAdd = false
-    @Published var showQuickAdd = false
-    /// 从「一句话记账」失败退到手动记账时，把用户原来那句话带进备注。
-    @Published var pendingNote: String?
     @Published var pendingDrafts: [DraftItem] = []
     @Published var showDrafts = false
     /// 右下那颗「记一笔」是否收起（滚动收起，滞回 24pt）。
@@ -143,5 +141,50 @@ struct RootView: View {
                 state.pendingDrafts = []
             }
         }
+        #if DEBUG
+        // 上膛了就挂一条，免得拿正常路径当失败路径验。
+        .safeAreaInset(edge: .top, spacing: 0) { DebugFaultBanner() }
+        // 启动参数 `-uiFaultCard <名字>`：直接把「记一笔」连同一张失败卡摆出来。
+        // 验收拍的是「标题 + 正文第一句 + 两颗按钮在同一张图里」，不该靠点一串坐标才拍得到。
+        .task {
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-uiTab"), i + 1 < args.count {
+                switch args[i + 1] {
+                case "settings": state.tab = .settings
+                case "bills": state.tab = .bills
+                case "stats": state.tab = .stats
+                default: state.tab = .home
+                }
+            }
+            if args.contains("-uiFaultCard") || args.contains("-uiAmount") {
+                state.showAdd = true
+            }
+            // 启动参数 `-uiDrafts`：草稿确认那页只能靠一次模型解析才到得了，
+            // 验收不该依赖网络。三张：填好的、缺金额的、缺类型的。
+            if args.contains("-uiDrafts") {
+                state.openDrafts(Self.debugDrafts)
+            }
+        }
+        #endif
     }
+
+    #if DEBUG
+    /// 草稿确认那页只能靠一次模型解析才到得了，验收不该依赖网络。
+    private static var debugDrafts: [DraftItem] {
+        let today = LedgerStore.shared.todayIso
+        func draft(_ id: String, _ type: String, _ amountText: String, _ minor: Int64,
+                   _ category: String, _ note: String,
+                   _ missing: [String] = []) -> DraftItem {
+            DraftItem(id: id, type: type, amountText: amountText, amountMinor: minor,
+                      currency: "CNY", dateText: "", localDate: today,
+                      category: category, note: note, account: "现金",
+                      countInBudget: true, missingFields: missing)
+        }
+        return [
+            draft("d1", TxnTypes.expense, "28.00", 2800, "餐饮", "午饭"),
+            draft("d2", TxnTypes.expense, "", 0, "交通", "打车", [DraftMissing.amount]),
+            draft("d3", "", "18.00", 1800, "餐饮", "咖啡", [DraftMissing.type]),
+        ]
+    }
+    #endif
 }

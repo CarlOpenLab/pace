@@ -14,40 +14,22 @@ enum Copy {
 
     enum Ai {
 
-        /// 1.1 入口（记账弹层顶部那行输入）。
-        enum Entry {
-            static let placeholder = "昨天午饭 28"
-            /// 输入框左侧小标签，保持短。
-            static let badge = "AI"
-            /// 顶部字段下方的标题行。
-            static let title = "一句话记账"
-            static let a11y = "一句话记账，用一句话生成账单草稿"
-            /// 回车键文案。
-            static let submit = "整理"
-        }
-
         /// 1.2 输入页（sheet）。
         enum Input {
-            static let title = "一句话记账"
-            /// 输入卡顶部那行标签。
-            static let label = "说一句话，出几笔草稿"
-            static let placeholder = "昨天午饭 28，晚上打车 16"
-            /// 例句胶囊（点一下填进去）。
-            static let examples = ["昨天午饭 28", "今晚打车 16", "超市 56 微信"]
-            /// 说明一行：三种状态，按开关和有没有 Key 换。
-            static let noteNoKey = "没填自己的模型时，就在这台手机上整理，不联网。"
-            static let noteRemote = "只发送你在这里打的这句话，账本其他内容不跟着发。可以一次说好几笔。"
-            static let noteLocalOff = "开关关着，现在用本机规则整理，不联网。可以一次说好几笔。"
-            /// 旧键，等同 noteRemote。
-            static let note = noteRemote
-            static let noteLocal = noteLocalOff
+            static let placeholder = "早饭 12，地铁 4"
+            /// 例句胶囊（点一下填进去）。最多三个，第一个留「昨天午饭 28」：
+            /// 本机规则失败卡里就引用了这一句。
+            static let examples = ["昨天午饭 28", "超市 56 微信", "工资 8000"]
             /// 没填 Key 时的状态小字；填了则显示模型名（如 deepseek-chat）。
             static let localRuleStatus = "本机规则"
             static let cancel = "取消"
-            /// 次按钮：从这儿退出就是要手动记，不叫「取消」。
-            static let manual = "改成手动记账"
             static let submit = "整理成草稿"
             static let submitting = "正在整理…"
+            /// 就地确认（docs/DESIGN-quickadd-primary.md §5）
+            static let parsing = "正在拆这一句…"
+            static let confirmInline = "记上"
+            static let editInline = "改一下"
+            static let confirmed = "记上了"
         }
 
         /// 3. 设置里的「AI 一句话记账」。
@@ -58,28 +40,80 @@ enum Copy {
             static let subtitleOn = "开着。你打的那句话会发给你填的服务；账本其他内容不出设备。"
             static let disabledToast = "已关掉，改用本机规则，不出手机。"
 
-            /// 3.2 三项设置：接口地址。
-            enum Endpoint {
-                static let label = "接口地址"
-                static let placeholder = "https://api.deepseek.com/v1/chat/completions"
-                static let note = "按 OpenAI 兼容格式填。DeepSeek、Kimi、智谱、OpenAI 都能直接填。"
+            /// 3.2 服务商预置。名字用各家自己的写法，不翻译。
+            enum Provider {
+                static let label = "服务商"
+                static let note = "换了服务商，Key 要换成那一家发的。"
+                static let custom = "自定义"
             }
 
-            /// 3.2 三项设置：模型名。
+            /// 3.2 接口地址：选「自定义」时才露出来。
+            enum Endpoint {
+                static let label = "接口地址"
+                static let placeholder = "https://api.deepseek.com/v1"
+                static let note = "按 OpenAI 兼容格式填，地址一般写到 /v1 就行。"
+            }
+
+            /// 3.2 手填模型名。
             enum Model {
                 static let label = "模型名"
                 static let placeholder = "deepseek-chat"
                 static let note = "填服务商文档里给的那个名字。"
             }
 
+            /// 3.4 模型下拉：读取模型列表，以及手填兜底。
+            enum ModelPick {
+                static let label = "模型"
+                static let loading = "正在读取模型列表…"
+                static let ready = "这些是这个 Key 能用的模型。选一个就保存。"
+                static let empty = "这个 Key 一个模型都没有。手填一个试试。"
+                static let read = "读取模型列表"
+                static let retry = "重新读取"
+                static let manual = "手动填模型名"
+                static let backToList = "回到列表"
+                static let title = "选择模型"
+                static let search = "搜模型名"
+                static let close = "取消"
+                static let choose = "选择一个"
+                static let clearSearch = "清空搜索"
+                static let noMatch = "没搜到。关掉这一页，用「手填模型名」直接填。"
+
+                /// 手上这份名单是上次读回来的，这次没读上。
+                static let staleList = "这是上次读回来的列表，可能不是最新的。"
+
+                static func stale(_ model: String) -> String {
+                    "「\(model)」这次没在列表里。可能换过服务商，或者它已经下线了。还用它也行。"
+                }
+
+                /// 四种失败态放各自站得住的话；「不列模型」是这家就这样，不当错误。
+                enum Error {
+                    static let keyRejected = "这个服务没认这把 Key。检查一下有没有粘全，或者去服务商后台看看它还能不能用、能不能读模型。"
+                    static let noModelList = "这个服务不提供模型列表。手填一个模型名就行，服务商文档里有。"
+                    static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
+                    static let server = "那边出了点问题，模型列表没取回来。过一会儿再读一次，或者先手填模型名。"
+                    static let noKey = "先填 Key，这里会列出这个 Key 能用的模型。"
+                    static let noAddress = "先填接口地址，再读模型列表。"
+                    static let noAddressAndKey = "先填接口地址和 Key。"
+                }
+
+                static let a11yLoading = "正在读取模型列表"
+
+                static func a11yLoaded(_ count: Int) -> String {
+                    "模型列表回来了，\(count) 个模型"
+                }
+            }
+
             /// 3.2 三项设置：Key。
             enum Key {
                 static let label = "Key"
                 static let placeholder = "sk-…"
-                static let note = "只存在这台手机的钥匙串里，不写进导出文件，不进日志。清空账本不会删它，要删就点下面的「清空 Key」。"
+                static let note = "只存在这台手机的钥匙串里，不写进导出文件，不进日志。清空账本不会删它，要删就点「清空 Key」。"
+                static let storeFailed = "这把 Key 没存进手机。这一页里还能用，但重开 app 就没了，得再粘一次。"
             }
 
-            static let fallbackNote = "没填这三项，就用本机规则整理：断网也能用，说的话不出手机。"
+            /// Key 下面那句：开关那两行说「现在走哪条路」，这句说「贴上这把 Key
+            /// 等于同意什么」。Camo 定稿，顶掉原来那句「没配好服务，就用本机规则整理」。
+            static let keyScope = "填了它，记账时打的那句话会发给你选的服务；账本其他内容不跟着发，没填就还是本机规则。"
             static let securityTitle = "Key 在你手机上"
             static let securityNote = "提醒一句：Key 存在你手机上，谁拿到你解锁的手机，就能用掉你的额度。建议单独申请一个 Key，方便随时去服务商后台吊销。"
         }
@@ -91,7 +125,7 @@ enum Copy {
             static let ok = "连上了。"
             static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
             static let keyRejected = "Key 没通过。这个服务没认这把 Key，去服务商后台确认一下。"
-            static let incomplete = "先把接口地址、模型名和 Key 都填上。"
+            static let incomplete = "先把地址和 Key 填上，再把模型选上。"
             static let clearKey = "清空 Key"
             static let clearConfirmTitle = "清空 Key？"
             static let clearConfirmBody = "清掉以后就用本机规则拆句子，账本不受影响。"
@@ -102,18 +136,21 @@ enum Copy {
         /// 5. 失败与回退（五种）。正文末句「账本没有任何变化」是承诺，不可省略。
         enum Fail {
 
+            /// 失败卡上那条出路。和类型菜单那行一个字不差：一个动作不许有两个名。
+            static let toManual = "切到手动"
+
             /// 本机规则没读懂。
             enum LocalRule {
                 static let title = "这句话没拆开"
-                static let body = "本机规则只认常见的说法，比如「昨天午饭 28」。换个说法，或者手动记。账本没有任何变化。"
-                static let primary = "手动记这笔"
+                static let body = "本机规则只认常见的说法，比如「昨天午饭 28」。换个说法，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
             }
 
             /// 模型没读懂（返回的不是草稿、空结果）。
             enum Model {
                 static let title = "这次没整理出来"
-                static let body = "你填的服务没能把这句话拆成账单。换句话再说，或者手动记。账本没有任何变化。"
-                static let primary = "手动记这笔"
+                static let body = "你填的服务没能把这句话拆成账单。换句话再说，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
                 static let secondary = "用本机规则再试"
             }
 
@@ -122,14 +159,14 @@ enum Copy {
                 static let title = "连不上网"
                 static let body = "你填的服务要联网才能用。先在这台手机上拆也行。账本没有任何变化。"
                 static let primary = "用本机规则再试"
-                static let secondary = "手动记这笔"
+                static let secondary = toManual
             }
 
             /// 超时（20 秒）。
             enum Timeout {
                 static let title = "那边没回话"
-                static let body = "等太久了，这次不算。可以再试一次，或者手动记。账本没有任何变化。"
-                static let primary = "手动记这笔"
+                static let body = "等太久了，这次不算。可以再试一次，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
                 static let secondary = "用本机规则再试"
             }
 
@@ -165,8 +202,9 @@ enum Copy {
     // MARK: - 4. 草稿确认页
 
     enum Draft {
+        /// 数字只在大于零时出现：0 笔的时候别把 0 写进句子里。
         static func title(count: Int) -> String {
-            "草稿 \(count) 笔"
+            count > 0 ? "草稿 \(count) 笔" : "没有草稿"
         }
         static let headerLeft = "确认后才进账本"
         static let headerRight = "逐笔可改"
@@ -176,18 +214,38 @@ enum Copy {
             return "还有 \(count) 笔要补\(field)。"
         }
         static func saveButton(count: Int) -> String {
-            "保存 \(count) 笔"
+            count > 0 ? "保存 \(count) 笔" : "保存"
         }
-        static let fillRequiredButton = "先补金额"
+        /// 缺的都一样就说那一样；说不到一起就只说还不能保存。
+        static func fillRequiredButton(field: String?) -> String {
+            guard let field else { return "补完再保存" }
+            return "先补\(field)"
+        }
+        /// 草稿全删光以后这一页的样子。
+        static let emptyTitle = "这一批草稿都删掉了。"
+        static let emptySubtitle = "账本没有变化，回去就行"
         static let discardAll = "全部不要"
         static let deleteAction = "删除"
         static let statusNeedsSupplement = "需要补充"
         static let statusReady = "可以保存"
         static let footer = "草稿先给你看，你确认的才进账本。"
 
+        /// 金额没解析出来时右边那个占位（按字画的破折号，不是 44pt 色块）。
+        static let emptyAmount = "还没填"
+        /// 金额为 0 那行说明。
+        static let noAmountHint = "这句话里没有金额，不猜。"
+        /// 卡片头部类型胶囊的去表单出口。
+        static let toManual = "退款或转账，切到手动"
+
         /// 4.1 「需要补充」的标记措辞（标记 + 点开补的时候那行提示）。
         enum Missing {
             static let amount = "需要金额"
+            /// 缺类型时胶囊里那两个字：说的是现在要做的事。
+            static let typeCapsule = "选类型"
+            /// 读屏：没选时的值。
+            static let typeNotChosen = "没选"
+            static let typeHintNotChosen = "点按选择支出或收入"
+            static let typeHintChosen = "点按可以改成支出或收入"
             static let amountHint = "补一个金额就能保存"
             static let date = "需要日期"
             static let dateHint = "现在按今天算，可以改"
@@ -287,13 +345,16 @@ enum Copy {
         static let remainingLabel = "今天还剩"
         static let remainingOverspentLabel = "今天超支"
         static func budgetSpent(budget: String, spent: String) -> String {
-            "预算 ¥\(budget) · 已花 ¥\(spent)"
+            "\(budgetPart(budget: budget)) · \(spentPart(spent: spent))"
         }
+        /// 大字号下要折行：拆成两段、不带点（Colo 第十六版：分隔点只在一整行放得下时出现）。
+        static func budgetPart(budget: String) -> String { "预算 ¥\(budget)" }
+        static func spentPart(spent: String) -> String { "已花 ¥\(spent)" }
         static let budgetSpentHint = "不算进预算的那几笔，和退款，都不在这里扣。"
         static let todayBillsTitle = "今天"
         static let emptyTitle = "还没有账单"
-        static let emptySubtitleNoKey = "点下面的「记一笔」，或者打一句话。"
-        static let emptySubtitleWithKey = "点下面的「记一笔」，或者打一句话。"
+        /// 两个填法共用同一句：不再按有没有 Key 分叉。
+        static let emptySubtitle = "点「记一笔」，说一句话就行。"
         static let loading = "加载中…"
     }
 
@@ -325,11 +386,35 @@ enum Copy {
         static let notInBudget = "不计入预算"
     }
 
+    // MARK: - 8. 记一笔：两种填法（docs/add-mode-switch-copy.md）
+
+    /// 页顶的切换器。两个都是 Button，不是 Picker。
+    enum AddMode {
+        static let sentence = "一句话"
+        static let manual = "手动"
+        static let switchHint = "切换后已经填的内容不会丢"
+    }
+
+    /// 一句话这一条路自己的字：键盘键和读屏提示按走不走模型分开。
+    enum Sentence {
+        static let fieldA11y = "一句话记账"
+        static let parsing = "正在整理…"
+    }
+
     // MARK: - 7. 记账页（AddView）
 
     enum Add {
+        static let title = "记一笔"
+        static let editTitle = "编辑账单"
+        static let save = "保存"
+        static let closeA11y = "关掉"
+        /// 类型胶囊那一组的读屏名（docs/add-mode-switch-copy.md §3）。
+        static let typeGroupA11y = "类型"
         static let sectionAccountBudget = "账户与预算"
         static let accountPlaceholder = "现金、微信、银行卡…"
+        /// 备注框的占位。系统默认的占位色在亮色卡片上只有 1.7:1，读不出来，
+        /// 这里显式给 ink2（亮 4.7:1、暗 7.2:1）。
+        static let notePlaceholder = "例如：午饭"
         static let sectionRefundOriginal = "这笔退的是哪一笔"
         static let noRefundCandidates = "还没有可以关联的支出账单。"
 
@@ -433,26 +518,107 @@ enum Copy {
 
         /// 7.27–7.30 恢复与导入。
         enum Import {
-            static func previewDuplicates(count: Int) -> String {
-                "其中 \(count) 笔现在账本里已经有了"
+            /// 数字只有大于 0 才出现：0 在这句里不带来信息，只带来「我是不是漏了什么」。
+            static func previewDuplicates(count: Int) -> String? {
+                count > 0 ? "其中 \(count) 笔现在账本里已经有了" : nil
             }
-            static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。\n替换：先清空，再写入文件里的内容。"
+            static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。替换：先清空，再写入文件里的内容。"
             static func merged(added: Int, skipped: Int) -> String {
-                "已合并：新增 \(added) 笔，跳过 \(skipped) 笔"
+                var parts: [String] = []
+                if added > 0 { parts.append("新增 \(added) 笔") }
+                if skipped > 0 { parts.append("跳过 \(skipped) 笔") }
+                return "已合并：" + (parts.isEmpty ? "没有新的账单" : parts.joined(separator: "，"))
+            }
+
+            /// 恢复预览这一屏的字。以前七句写死在 View 里，改一处漏三处。
+            enum Preview {
+                static let title = "恢复预览"
+                static func bills(count: Int, first: String?, last: String?) -> String {
+                    if let first, let last, !first.isEmpty, !last.isEmpty {
+                        return "账单 \(count) 笔（\(first) ~ \(last)）"
+                    }
+                    return "账单 \(count) 笔"
+                }
+                static func groups(categories: Int, budgets: Int) -> String {
+                    "分类 \(categories) · 预算规则 \(budgets)"
+                }
+                static let merge = "合并到现有账本"
+                static let replace = "替换当前账本…"
+                /// 校验没通过那张卡：标题只说哪件事没成，「现在什么状态」进正文。
+                static let invalidTitle = "这份文件没通过校验"
+                static let invalidBody = "什么都没写进账本，账本还是原来的样子。"
+                static let retry = "换一份文件再试"
+            }
+
+            /// 导入结果。
+            enum Result {
+                static func replaced(count: Int) -> String {
+                    "已替换：写入 \(count) 笔"
+                }
             }
 
             /// 7.30 导入失败：错误码只进日志，界面统一冠以前缀。
             enum Issue {
-                static let invalidAmount = "有一笔金额不对，要是大于 0 的数，最多两位小数"
+                static let invalidAmount = "有一笔金额不对，要写成大于 0 的数，最多两位小数"
                 static let invalidDate = "有一笔日期看不懂"
                 static let invalidTypeOrCategory = "有一笔的类型或分类不认识"
                 static let noteTooLong = "有一笔备注超过 500 字"
                 static let unknown = "文件读不出来，可能不是 Pace 导出的"
 
+                /// 三拍：没成 → 现在什么状态 → 下一步做什么。
                 static func failed(reason: String) -> String {
-                    "没有导入，现在的账本没变：\(reason)"
+                    "没有导入，现在的账本没变：\(reason)。换一份 Pace 导出的文件再试。"
                 }
             }
+        }
+    }
+
+    /// 6.4 说出来的失败：哪件事没成 / 现在什么状态 / 能不能再试。
+    enum Failed {
+
+        /// 撤销删除：账本确实变了（这笔没了），所以不写「账本没有变化」。
+        enum Undo {
+            static let title = "没恢复上"
+            static let body = "这笔还是删掉的，账本没有变化。再点一次「撤销」试试。"
+        }
+
+        /// 删除本身没成：账本没变，这笔还在。
+        enum Delete {
+            static let title = "没删掉"
+            static let body = "这笔还在账本里，账本没有变化。再点一次「删除」试试。"
+        }
+
+        /// 草稿保存失败（不是重复）。
+        enum DraftSave {
+            static let title = "没保存上"
+            static let bodyMany = "这几笔还在草稿页里，账本没有变化。再试一次。"
+            static let bodyOne = "这笔还在草稿页里，账本没有变化。再试一次。"
+
+            /// 部分成功：存进去的那几笔真的进了账本，别再说「没有变化」。
+            static func partial(saved: Int, failed: Int) -> String {
+                "存进去 \(saved) 笔，还有 \(failed) 笔没保存上，还在草稿页里。再试一次。"
+            }
+        }
+
+        /// 就地确认那一路：不能复用「这次没整理出来」，那是解析失败的话。
+        enum InlineSave {
+            static let title = "没记上"
+            static let body = "账本没有变化。再按一次「记上」。"
+        }
+
+        /// 导出：写文件失败时别弹分享面板。
+        enum Export {
+            static let title = "导出没成功"
+            static let body = "文件没写成，账本没有变化。再试一次。"
+        }
+
+        /// 再说一次的那个动作（三条失败卡上都有）。
+        static let retry = "再试一次"
+
+        /// 自画勾选块的读屏状态：读屏要能说「开关，已打开／已关闭」。
+        enum Controls {
+            static let on = "已打开"
+            static let off = "已关闭"
         }
     }
 

@@ -1,271 +1,191 @@
 import SwiftUI
 import shared
 
-/// 一句话记账（输入页）：一句话进来，本机规则或用户自己填的服务拆成草稿。
-struct QuickAddView: View {
-    let initialText: String
-    let onSaved: () -> Void
+/// 「记一笔」页里一句话这条路的零件。
+/// 页面本身和两边共用的状态都在 AddView：切换填法不能把已经写好的东西丢掉，
+/// 所以这些视图只负责画，不自己留 @State。
+enum AddFillMode: Hashable {
+    case sentence
+    case manual
+}
 
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var ai: AiSettings
+/// 页顶切换器（docs/DESIGN-add-mode-switch.md §1）。
+///
+/// 外观是 34 高的胶囊，但每个按钮的点击区撑到 44：34 只够看，不够手指点。
+/// 外面的 AddView 用 3 + 7 的上下留白把视觉位置补回设计稿的 8 / 12。
+struct AddModeSwitcher: View {
+    @Binding var mode: AddFillMode
 
-    @State private var text: String
-    @State private var busy = false
-    @State private var failure: AiFailure?
-    @State private var drafts: [DraftItem] = []
-    @State private var showReview = false
-    /// 失败是「本机规则」那一路时，文案和按钮都不一样。
-    @State private var localFailure = false
-    @EnvironmentObject private var state: AppState
+    /// 槽高 44、内距 3、段高 38（Colo 2.3.1，Carl 定的玻璃切换）。
+    /// 跟着字号按 1.6 倍封顶长——默认字号就是原来的 44/38。
+    @ScaledMetric(relativeTo: .subheadline) private var slotHeight: CGFloat = 44
 
-    private var examples: [String] { Copy.Ai.Input.examples }
+    private var slot: CGFloat { min(slotHeight, 44 * 1.6) }
+    private var track: CGFloat { slot - 6 }
 
-    init(initialText: String = "", onSaved: @escaping () -> Void) {
-        self.initialText = initialText
-        self.onSaved = onSaved
-        _text = State(initialValue: initialText)
-    }
-
-    private var trimmed: String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var canSubmit: Bool { !trimmed.isEmpty && !busy }
+    @Namespace private var selection
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: PaceSpace.cardGap) {
-                    inputCard
-                    exampleRow
-                    hintLine
-                    primaryButton
-                    manualButton
-                    if let failure {
-                        failureCard(failure)
-                    }
-                }
-                .padding(.horizontal, PaceSpace.screen)
-                .padding(.vertical, PaceSpace.cardGap)
-            }
-            .background(PaceColor.canvas)
-            .navigationTitle(Copy.Ai.Input.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(isPresented: $showReview) {
-                DraftReviewView(drafts: drafts) {
-                    onSaved()
-                    dismiss()
-                }
-            }
+        HStack(spacing: 0) {
+            segment(.sentence, title: Copy.AddMode.sentence)
+            segment(.manual, title: Copy.AddMode.manual)
         }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .padding(3)
+        .frame(height: slot)
+        // 只有槽是玻璃：选中那一段仍是实底。两段都在玻璃上，就再也看不出选的是哪个。
+        .glassEffect(.regular, in: .capsule)
+        .animation(.easeOut(duration: 0.18), value: mode)
     }
 
-    // MARK: - 输入卡
-
-    private var inputCard: some View {
-        VStack(alignment: .leading, spacing: PaceSpace.inner) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles").font(.system(size: 12, weight: .semibold))
-                Text(Copy.Ai.Input.label).font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(PaceColor.ai)
-
-            TextField(Copy.Ai.Input.placeholder, text: $text, axis: .vertical)
-                .font(.system(size: 17))
-                .lineSpacing(4)
-                .tint(PaceColor.ai)
-                .lineLimit(3...6)
-                .disabled(busy)
-                .accessibilityLabel("一句话记账输入框")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .paceCardFill(20)
-    }
-
-    private var exampleRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(examples, id: \.self) { example in
-                    Button {
-                        text = example
-                    } label: {
-                        Text(example).font(.system(size: 13))
-                    }
-                    .buttonStyle(PillChipStyle())
-                }
-            }
-        }
-    }
-
-    private var hintLine: some View {
-        Text(hintText)
-            .font(.system(size: 12))
-            .foregroundStyle(PaceColor.ink2)
-    }
-
-    /// 说明一行：没填三项、开关开着、开关关着，三种说法。
-    private var hintText: String {
-        if ai.config == nil { return Copy.Ai.Input.noteNoKey }
-        return ai.usesRemoteModel ? Copy.Ai.Input.noteRemote : Copy.Ai.Input.noteLocalOff
-    }
-
-    private var primaryButton: some View {
+    private func segment(_ value: AddFillMode, title: String) -> some View {
         Button {
-            Task { await submit() }
+            mode = value
         } label: {
-            HStack(spacing: 8) {
-                if busy {
-                    ProgressView().tint(PaceColor.onAccent)
-                    Text(Copy.Ai.Input.submitting)
-                } else {
-                    Text(Copy.Ai.Input.submit)
+            Text(title)
+                .paceFont(15, .semibold)
+                .foregroundStyle(mode == value ? PaceColor.onAccent : PaceColor.ink2)
+                .lineLimit(1)
+                // 不再压字号：minimumScaleFactor(0.85) 就是把用户选的字按回去。
+                .frame(maxWidth: .infinity)
+                .frame(height: track)
+                .background(alignment: .center) {
+                    if mode == value {
+                        Capsule(style: .continuous)
+                            .fill(PaceColor.accent)
+                            .matchedGeometryEffect(id: "selected", in: selection)
+                    }
                 }
-            }
+                .contentShape(Rectangle())
         }
-        .buttonStyle(PrimaryButtonStyle())
-        .disabled(!canSubmit)
-        .opacity(canSubmit ? 1 : 0.4)
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+        // 承诺要在按之前就听到：两边都带，不只在当前那一边。
+        .accessibilityHint(Text(Copy.AddMode.switchHint))
+        .accessibilityAddTraits(mode == value ? .isSelected : [])
+    }
+}
+
+/// 解析中：原地占住草稿卡的位置，44 高，不跳页、不铺骨架屏。
+struct SentenceParsingRow: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 16, height: 16)
+            Text(Copy.Sentence.parsing)
+                .font(PaceType.secondary)
+                .foregroundStyle(PaceColor.ink2)
+            Spacer(minLength: 0)
+        }
+        .frame(height: 44)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(Copy.Sentence.parsing))
+    }
+}
+
+/// 一笔且字段齐全时就地确认的那张卡。点卡片等于「改一下」。
+struct SentenceDraftCard: View {
+    let item: DraftItem
+    let onTap: () -> Void
+
+    /// 草稿卡金额：display 那一套——跟着系统字号长、封顶 1.5 倍（34→51）、不低于 34。
+    /// 原来这里带着 minimumScaleFactor(0.6)，等于字一大就把用户选的字号压回去；
+    /// 现在放不下就换行，不许缩。
+    @ScaledMetric(relativeTo: .largeTitle) private var draftAmountScaled: CGFloat = 34
+    /// 字段名的列宽跟着字号长（封顶 1.6 倍），否则大字号下「分类」两个字会被挤成两行。
+    @ScaledMetric(relativeTo: .body) private var fieldLabelWidth: CGFloat = 40
+
+    private var draftAmountSize: CGFloat {
+        min(max(34, draftAmountScaled), 34 * 1.5)
     }
 
-    private var manualButton: some View {
-        Button(Copy.Ai.Input.manual) { goManual() }
-        .buttonStyle(PlainButtonStylePace())
-    }
-
-    // MARK: - 失败
-
-    private func failureCard(_ failure: AiFailure) -> some View {
-        let copy = failureCopy(failure, isLocal: localFailure)
-        return VStack(alignment: .leading, spacing: PaceSpace.inner) {
-            Text(copy.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(PaceColor.ink)
-            Text(copy.body).font(.system(size: 13)).foregroundStyle(PaceColor.ink2)
-            HStack(spacing: 10) {
-                Button(copy.primary) { primaryAction(failure) }
-                    .buttonStyle(PillChipStyle(selected: true))
-                if let secondary = copy.secondary {
-                    Button(secondary) { secondaryAction(failure) }
-                        .buttonStyle(PillChipStyle())
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 金额和类型胶囊：并排放不下时，胶囊整颗落到金额下面，金额自己不被挤窄。
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline) {
+                    amountLabel
+                    Spacer(minLength: 8)
+                    typePill
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    amountLabel
+                    typePill
                 }
             }
+            .padding(.bottom, 12)
+
+            Rectangle()
+                .fill(PaceColor.divider)
+                .frame(height: 0.5)
+
+            fieldRow(Copy.Draft.Field.category, value: shortCategory)
+            fieldRow(Copy.Draft.Field.date, value: dateText)
+            fieldRow(Copy.Draft.Field.account, value: item.account.isEmpty ? "现金" : item.account)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .paceCardFill(18)
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .onTapGesture(perform: onTap)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("账单草稿"))
+        .accessibilityValue(Text(accessibilityValue))
     }
 
-    private struct FailureCopy {
-        let title: String
-        let body: String
-        let primary: String
-        let secondary: String?
+    private var amountLabel: some View {
+        Text(amountText)
+            .font(.system(size: draftAmountSize, weight: .heavy, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(item.type == TxnTypes.refund ? PaceColor.income : PaceColor.ink)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func failureCopy(_ failure: AiFailure, isLocal: Bool) -> FailureCopy {
-        if isLocal {
-            // 本机规则自己没拆开：只留「手动记这笔」。
-            return FailureCopy(
-                title: Copy.Ai.Fail.LocalRule.title,
-                body: Copy.Ai.Fail.LocalRule.body,
-                primary: Copy.Ai.Fail.LocalRule.primary,
-                secondary: nil
-            )
+    // 类型胶囊只报数、不改成菜单：要选转账或退款，出口在草稿确认页的菜单里。
+    private var typePill: some View {
+        Text(typeLabel)
+            .paceFont(11, .medium, relativeTo: .caption2)
+            .foregroundStyle(PaceColor.ink2)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(PaceColor.card2, in: Capsule(style: .continuous))
+    }
+
+    private func fieldRow(_ label: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .paceFont(11, .regular, relativeTo: .caption2)
+                .foregroundStyle(PaceColor.ink2)
+                .frame(width: min(fieldLabelWidth, 40 * 1.6), alignment: .leading)
+            Text(value)
+                .paceFont(15, .regular, relativeTo: .subheadline)
+                .foregroundStyle(PaceColor.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
-        switch failure {
-        case .offline:
-            return FailureCopy(title: Copy.Ai.Fail.Offline.title, body: Copy.Ai.Fail.Offline.body,
-                               primary: Copy.Ai.Fail.Offline.primary, secondary: Copy.Ai.Fail.Offline.secondary)
-        case .timeout:
-            return FailureCopy(title: Copy.Ai.Fail.Timeout.title, body: Copy.Ai.Fail.Timeout.body,
-                               primary: Copy.Ai.Fail.Timeout.primary, secondary: Copy.Ai.Fail.Timeout.secondary)
-        case .keyRejected:
-            return FailureCopy(title: Copy.Ai.Fail.KeyRejected.title, body: Copy.Ai.Fail.KeyRejected.body,
-                               primary: Copy.Ai.Fail.KeyRejected.primary, secondary: Copy.Ai.Fail.KeyRejected.secondary)
-        case .quota:
-            return FailureCopy(title: Copy.Ai.Fail.KeyRejected.title, body: Copy.Ai.Fail.Quota.body,
-                               primary: Copy.Ai.Fail.KeyRejected.primary, secondary: Copy.Ai.Fail.KeyRejected.secondary)
-        case .addressUnreachable, .notConfigured:
-            return FailureCopy(title: Copy.Ai.Fail.Offline.title, body: Copy.Ai.Fail.Offline.body,
-                               primary: Copy.Ai.Fail.Offline.primary, secondary: Copy.Ai.Fail.Offline.secondary)
-        default:
-            return FailureCopy(title: Copy.Ai.Fail.Model.title, body: Copy.Ai.Fail.Model.body,
-                               primary: Copy.Ai.Fail.Model.primary, secondary: Copy.Ai.Fail.Model.secondary)
-        }
+        .frame(minHeight: 32)
     }
 
-    private func primaryAction(_ failure: AiFailure) {
-        let copy = failureCopy(failure, isLocal: localFailure)
-        switch copy.primary {
-        case Copy.Ai.Fail.KeyRejected.primary:
-            dismiss()
-        case Copy.Ai.Fail.Offline.primary:
-            runLocal()
-        case Copy.Ai.Fail.Timeout.primary, Copy.Ai.Fail.Model.primary, Copy.Ai.Fail.LocalRule.primary:
-            goManual()
-        default:
-            goManual()
-        }
+    private var amountText: String {
+        let base = LedgerStore.shared.format(item.amountMinor, currency: item.currency)
+        return item.type == TxnTypes.refund ? "-\(base)" : base
     }
 
-    private func secondaryAction(_ failure: AiFailure) {
-        if localFailure {
-            goManual()
-        } else {
-            runLocal()
-        }
+    private var typeLabel: String {
+        TxnTypes.all.first(where: { $0.0 == item.type })?.1 ?? item.type
     }
 
-    /// 手动记这笔：把用户原来那句话原样带进备注。
-    private func goManual() {
-        state.pendingNote = trimmed.isEmpty ? nil : trimmed
-        state.showAdd = true
-        dismiss()
+    private var shortCategory: String {
+        item.category.count > 6 ? String(item.category.prefix(6)) + "…" : item.category
     }
 
-    // MARK: - 拆句
-
-    private func submit() async {
-        guard canSubmit else { return }
-        failure = nil
-        busy = true
-        defer { busy = false }
-
-        let sentence = trimmed
-        let today = LedgerStore.shared.todayIso
-
-        if ai.usesRemoteModel, let config = ai.config {
-            do {
-                let parsed = try await AiDraftClient.parse(text: sentence, todayIso: today, config: config)
-                drafts = parsed
-                showReview = true
-                return
-            } catch let error as AiFailure {
-                failure = error
-                return
-            } catch {
-                failure = .unreadable
-                return
-            }
-        }
-        runLocal(sentence: sentence, today: today)
+    private var dateText: String {
+        if !item.dateText.isEmpty { return item.dateText }
+        return item.localDate.isEmpty ? "今天" : DraftDate.display(item.localDate)
     }
 
-    private func runLocal() {
-        failure = nil
-        localFailure = false
-        runLocal(sentence: trimmed, today: LedgerStore.shared.todayIso)
-    }
-
-    private func runLocal(sentence: String, today: String) {
-        let parsed = LocalDrafts.parse(text: sentence, todayIso: today)
-        if parsed.isEmpty {
-            localFailure = true
-            failure = .unreadable
-            return
-        }
-        drafts = parsed
-        showReview = true
+    private var accessibilityValue: String {
+        [amountText, shortCategory, dateText, item.account.isEmpty ? "现金" : item.account]
+            .joined(separator: "，")
     }
 }

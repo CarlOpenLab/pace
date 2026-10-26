@@ -18,6 +18,8 @@ private enum StatsKind: String, CaseIterable, Identifiable {
 /// 统计页：汇总卡 + 花在哪了 + 每天花了多少（墨黑规范第二批 §2）。
 /// 实底卡片、无渐变；颜色只用于收入与超支。
 struct StatsView: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     @EnvironmentObject private var appState: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -191,20 +193,16 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: PaceSpace.inner) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(dateRangeText(from: data.fromLocalDate, to: data.toLocalDate))
-                    .font(.system(size: 11))
+                    .paceFont(11)
                     .foregroundStyle(PaceColor.ink2)
 
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(Copy.Stats.expense)
-                        .font(.system(size: 15, weight: .semibold))
+                        .paceFont(15, .semibold)
                         .foregroundStyle(PaceColor.ink2)
 
-                    Text(LedgerStore.shared.format(data.totalExpenseAll))
-                        .font(.system(size: 38, weight: .heavy, design: .rounded))
-                        .monospacedDigit()
+                    FittedAmountText(text: LedgerStore.shared.format(data.totalExpenseAll), base: 38)
                         .foregroundStyle(PaceColor.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -244,7 +242,11 @@ struct StatsView: View {
     }
 
     private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
+        // 大字号下两格并排会把数字挤成省略号，改成一列一格。
+        if typeSize.isAccessibilitySize {
+            return [GridItem(.flexible(), spacing: 10)]
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
     }
 
     private func statCell(
@@ -255,14 +257,14 @@ struct StatsView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .paceFont(11)
                 .foregroundStyle(PaceColor.ink2)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Text(value)
-                .font(.system(size: 15, weight: .bold))
+                .paceFont(15, .bold)
                 .foregroundStyle(valueColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
@@ -284,7 +286,7 @@ struct StatsView: View {
 
             if items.isEmpty {
                 Text(Copy.Stats.empty)
-                    .font(.system(size: 13))
+                    .paceFont(13)
                     .foregroundStyle(PaceColor.ink2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
@@ -297,7 +299,7 @@ struct StatsView: View {
 
                 if items.count > 6 {
                     Text(Copy.Stats.moreCategories(items.count - 6))
-                        .font(.system(size: 13))
+                        .paceFont(13)
                         .foregroundStyle(PaceColor.ink2)
                 }
             }
@@ -311,18 +313,18 @@ struct StatsView: View {
         let ratio = min(max(item.ratio, 0), 1)
 
         return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(item.category)
-                    .font(.system(size: 15))
-                    .foregroundStyle(PaceColor.ink)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                Text("\(LedgerStore.shared.format(item.amountMinor)) · \(percent)%")
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundStyle(PaceColor.ink2)
-                    .lineLimit(1)
+            // 分类名和「金额 · 占比」一行放不下时上下两行——金额那一串不许截。
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    categoryName(item)
+                    categoryAmount(item, percent)
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    categoryName(item)
+                    Spacer(minLength: 8)
+                    categoryAmount(item, percent)
+                }
             }
 
             PaceBar(ratio: ratio)
@@ -342,7 +344,7 @@ struct StatsView: View {
 
             if days.isEmpty {
                 Text(Copy.Stats.empty)
-                    .font(.system(size: 13))
+                    .paceFont(13)
                     .foregroundStyle(PaceColor.ink2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
@@ -355,7 +357,7 @@ struct StatsView: View {
             }
 
             Text(Copy.Stats.dailyFormula)
-                .font(.system(size: 11))
+                .paceFont(11)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -364,24 +366,62 @@ struct StatsView: View {
     }
 
     private func dailyRow(_ day: DailyOverview) -> some View {
-        HStack(spacing: 8) {
-            Text(shortDate(day.localDate))
-                .font(.system(size: 12))
-                .foregroundStyle(day.overspent ? PaceColor.danger : PaceColor.ink)
-                .frame(width: 44, alignment: .leading)
-                .lineLimit(1)
-
-            PaceBar(ratio: dailyRatio(day), danger: day.overspent)
-                .accessibilityLabel(Text(shortDate(day.localDate)))
-                .accessibilityValue(Text(Copy.Stats.usedA11y(dailyPercent(day))))
-
-            Text(dailyAmountText(day))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(PaceColor.ink2)
-                .frame(width: 128, alignment: .trailing)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+        // 默认字号：日期、进度条、金额一行（日期 44 点、金额 128 点，和以前一样）。
+        // 大字号：那两条定宽会把金额挤成省略号，改成日期和金额一行、进度条另起一行。
+        Group {
+            if typeSize.isAccessibilitySize {
+                // 大字号下「已花 / 预算」这一串自己占一行：和日期并排它会剩成「¥4.00 / ¥…」。
+                VStack(alignment: .leading, spacing: 6) {
+                    dailyDate(day)
+                    dailyAmount(day, wraps: true)
+                    dailyBar(day)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    dailyDate(day)
+                        .frame(width: 44, alignment: .leading)
+                    dailyBar(day)
+                    dailyAmount(day)
+                        .frame(width: 128, alignment: .trailing)
+                }
+            }
         }
+    }
+
+    private func dailyDate(_ day: DailyOverview) -> some View {
+        Text(shortDate(day.localDate))
+            .paceFont(12)
+            .foregroundStyle(day.overspent ? PaceColor.danger : PaceColor.ink)
+            .lineLimit(1)
+    }
+
+    private func dailyAmount(_ day: DailyOverview, wraps: Bool = false) -> some View {
+        Text(dailyAmountText(day))
+            .paceFont(11, design: .monospaced)
+            .foregroundStyle(PaceColor.ink2)
+            .lineLimit(wraps ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func dailyBar(_ day: DailyOverview) -> some View {
+        PaceBar(ratio: dailyRatio(day), danger: day.overspent)
+            .accessibilityLabel(Text(shortDate(day.localDate)))
+            .accessibilityValue(Text(Copy.Stats.usedA11y(dailyPercent(day))))
+    }
+
+    private func categoryName(_ item: CategorySpend) -> some View {
+        Text(item.category)
+            .paceFont(15)
+            .foregroundStyle(PaceColor.ink)
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func categoryAmount(_ item: CategorySpend, _ percent: Int) -> some View {
+        Text("\(LedgerStore.shared.format(item.amountMinor)) · \(percent)%")
+            .paceFont(13, design: .monospaced)
+            .foregroundStyle(PaceColor.ink2)
+            .lineLimit(1)
     }
 
     private func dailyRatio(_ day: DailyOverview) -> Double {

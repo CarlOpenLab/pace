@@ -10,8 +10,9 @@ configs:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    CODE_SIGNING_ALLOWED: "NO"
-    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_ALLOWED: "YES"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_ENTITLEMENTS: iosApp/Pace.entitlements
     GENERATE_INFOPLIST_FILE: "NO"
 targets:
   iosApp:
@@ -20,6 +21,11 @@ targets:
     sources:
       - path: iosApp
     settings:
+      # 调试构建要认得 `#if DEBUG`：故障注入那一整块只在这里面编译，
+      # 正式包里连编都不编进去。
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.pace.app
         PRODUCT_NAME: Pace
@@ -32,6 +38,7 @@ targets:
         ENABLE_PREVIEWS: "YES"
         SWIFT_STRICT_CONCURRENCY: minimal
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(PROJECT_DIR)/../shared/build/XCFrameworks/release"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
         OTHER_LDFLAGS: "$(inherited) -ObjC"
     dependencies:
       - framework: ../shared/build/XCFrameworks/release/shared.xcframework
