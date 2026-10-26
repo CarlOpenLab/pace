@@ -215,19 +215,24 @@ struct DraftReviewView: View {
             // 这样一张卡「怎么了、该按哪儿」扫一遍就够了，不用两个角来回看。
             // 默认字号并排一行；大字号下状态位掉到标题下面、仍然右对齐，金额再下一行。
             if typeSize.isAccessibilitySize {
+                // 钱的那一格不动（Colo 第十二版）：金额永远在标题行右侧那一格，
+                // 三张卡扫一眼能对齐。胶囊放不下就整组换到下面一行，不拆开、不把金额挤下去。
                 VStack(alignment: .leading, spacing: 6) {
-                    cardTitle(item)
+                    HStack(alignment: .firstTextBaseline) {
+                        cardTitle(item)
+                        Spacer(minLength: 8)
+                        cardAmount(item)
+                    }
                     HStack(spacing: 0) {
                         Spacer(minLength: 0)
-                        statusSlot(item, draft: draft)
+                        statusSlot(item: item, draft: draft)
                     }
-                    cardAmount(item)
                 }
             } else {
                 HStack(alignment: .firstTextBaseline) {
                     cardTitle(item)
                     Spacer(minLength: 8)
-                    statusSlot(item, draft: draft)
+                    statusSlot(item: item, draft: draft)
                     cardAmount(item)
                 }
             }
@@ -288,7 +293,7 @@ struct DraftReviewView: View {
     }
 
     @ViewBuilder
-    private func statusSlot(_ item: DraftItem, draft: Binding<DraftItem>) -> some View {
+    private func statusSlot(item: DraftItem, draft: Binding<DraftItem>) -> some View {
         VStack(alignment: .trailing, spacing: statusSlotGap) {
             statusPill(item.missingFields)
             typeCapsule(draft: draft)
@@ -421,6 +426,9 @@ struct DraftReviewView: View {
         guard !fields.isEmpty else { return nil }
         // 缺的只有类型时不再让状态标说第二遍：胶囊已经在说「选类型」了。
         if fields.count == 1, fields.first == DraftMissing.type { return nil }
+        // 缺的只有金额也不再挂状态标：金额那一格现在写的是「还没填」，
+        // 同一个事实只留一个信号（Colo 第十二版）。
+        if fields.count == 1, fields.first == DraftMissing.amount { return nil }
         if fields.count > 1 { return Copy.Draft.statusNeedsSupplement }
         switch fields.first {
         case DraftMissing.amount: return Copy.Draft.Missing.amount

@@ -231,7 +231,7 @@ enum Copy {
         static let footer = "草稿先给你看，你确认的才进账本。"
 
         /// 金额没解析出来时右边那个占位（按字画的破折号，不是 44pt 色块）。
-        static let emptyAmount = "—"
+        static let emptyAmount = "还没填"
         /// 金额为 0 那行说明。
         static let noAmountHint = "这句话里没有金额，不猜。"
         /// 卡片头部类型胶囊的去表单出口。

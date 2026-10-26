@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var exportFailed = false
     @State private var showImporter = false
     @State private var showSavedBadge = false
+    @State private var showDatePicker = false
 
     @EnvironmentObject private var ai: AiSettings
 
@@ -40,13 +41,15 @@ struct SettingsView: View {
                     EmptyView()
                 } footer: {
                     Text(Copy.Settings.version(versionText))
-                        .font(.system(size: 11))
+                        .paceFont(11)
                         .foregroundStyle(PaceColor.ink2)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .scrollContentBackground(.hidden)
             .background(PaceColor.canvas)
+            // 底栏和「记一笔」都是浮在上面的：内容滚到底也要停在它们上面。
+            .contentMargins(.bottom, 16, for: .scrollContent)
             .navigationTitle("设置")
             .id(refreshToken)
             .onAppear {
@@ -56,6 +59,22 @@ struct SettingsView: View {
             }
             .sheet(item: $exportShareItem) { item in
                 ShareSheet(items: [item.url])
+            }
+            .sheet(isPresented: $showDatePicker) {
+                NavigationStack {
+                    DatePicker(Copy.Settings.effectiveDate, selection: dateBinding, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .environment(\.locale, Locale(identifier: "zh_CN"))
+                        .padding()
+                        .navigationTitle(Copy.Settings.effectiveDate)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("完成") { showDatePicker = false }
+                            }
+                        }
+                }
+                .presentationDetents([.medium, .large])
             }
             .alert(Copy.Failed.Export.title, isPresented: $exportFailed) {
                 Button(Copy.Failed.retry) {
@@ -110,6 +129,30 @@ struct SettingsView: View {
         }
     }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// 区块标题按角色表走 sectionTitle（15 点重字），最多两行。
+    ///
+    /// 原来吃系统列表头的样式，最大档会自己长成 83 点高的一行——那不是「放大」，是路标变成了标题。
+    /// 这一处默认字号是有意改的（13 点系统灰 → 15 点重字），不是顺手改。
+    private func headerText(_ text: String) -> some View {
+        Text(text)
+            .paceFont(15, .semibold)
+            .foregroundStyle(PaceColor.ink2)
+    }
+
+    private var dateButton: some View {
+        Button {
+            showDatePicker = true
+        } label: {
+            Text(displayDate)
+                .paceFont(15)
+                .foregroundStyle(PaceColor.ink)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))
+    }
+
     // MARK: - 每日预算
 
     private var budgetSection: some View {
@@ -123,45 +166,55 @@ struct SettingsView: View {
                     month: month,
                     day: day
                 ))
-                .font(.system(size: 11))
+                .paceFont(11)
                 .foregroundStyle(PaceColor.ink2)
             } else {
                 Text(Copy.Settings.noBudget)
-                    .font(.system(size: 11))
+                    .paceFont(11)
                     .foregroundStyle(PaceColor.ink2)
             }
 
-            HStack {
-                Text(Copy.Settings.dailyBudget)
-                Spacer()
-                TextField(Copy.Settings.budgetPlaceholder, text: $budgetText)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
+            // 大字号下标签和值并排会把「每日预算」压成两行、值挤到右边剩一半；
+            // 改成标签一行、值一行（值仍然靠左，因为它要能被读准）。
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Copy.Settings.dailyBudget)
+                    TextField(Copy.Settings.budgetPlaceholder, text: $budgetText)
+                        .keyboardType(.decimalPad)
+                }
+            } else {
+                HStack {
+                    Text(Copy.Settings.dailyBudget)
+                    Spacer()
+                    TextField(Copy.Settings.budgetPlaceholder, text: $budgetText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                }
             }
 
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Copy.Settings.effectiveDate)
+                    dateButton
+                }
+            } else {
             HStack {
                 Text(Copy.Settings.effectiveDate)
                 Spacer()
-                // 界面上写「10月26日」；系统紧凑选择器只做背后的交互。
-                Text(displayDate)
-                    .font(.system(size: 15))
-                    .foregroundStyle(PaceColor.ink)
-                    .overlay {
-                        // 背后的日期选择器只用来接住点击，不能自己露字。
-                        // 以前给它 0.02 透明度：字一大，选择器自己那串「2026 年 10 月 26 日」
-                        // 就超出这一行的框，带着那点透明度浮在界面上。现在两件事都做：
-                        // 完全透明，并且锁在这行的框里不外溢。
-                        DatePicker("", selection: dateBinding, displayedComponents: .date)
-                            .labelsHidden()
-                            .environment(\.locale, Locale(identifier: "zh_CN"))
-                            .opacity(0)
-                            .accessibilityHidden(true)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .clipped()
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))
+                // 界面上写「10月26日」。以前是让一个透明的系统选择器垫在字后面接点击——
+                // 字一大，它自己那串「2026 年 10 月 26 日」就撑出这一格的框，
+                // 卡片底下多出一条空白（就是那条「透出来」的影子）。现在按一下开面板，
+                // 面板里是图形选择器：里面没有一行字要跟外面这格的宽度对齐。
+                Button {
+                    showDatePicker = true
+                } label: {
+                    Text(displayDate)
+                        .paceFont(15)
+                        .foregroundStyle(PaceColor.ink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))
+            }
             }
 
             // 真按钮，不是一行说明：可用时实底 accent，不可用时灰底点不动。
@@ -170,7 +223,7 @@ struct SettingsView: View {
                 saveBudget()
             } label: {
                 Text(showSavedBadge ? Copy.Settings.savedBadge : Copy.Settings.saveBudget)
-                    .font(.system(size: 16, weight: .semibold))
+                    .paceFont(16, .semibold)
                     .foregroundStyle(canSaveBudget ? PaceColor.onAccent : PaceColor.ink2)
             }
             .buttonStyle(BudgetSaveButtonStyle(enabled: canSaveBudget))
@@ -180,11 +233,11 @@ struct SettingsView: View {
 
             if let budgetError {
                 Text(budgetError)
-                    .font(.system(size: 12))
+                    .paceFont(12)
                     .foregroundStyle(PaceColor.danger)
             }
         } header: {
-            Text(Copy.Settings.dailyBudget)
+            headerText(Copy.Settings.dailyBudget)
         } footer: {
             Text(Copy.Settings.budgetFooter)
         }
@@ -224,12 +277,12 @@ struct SettingsView: View {
                     Text(Copy.Settings.quickAddStatusRow)
                     Spacer()
                     Text(ai.usesRemoteModel ? Copy.Settings.statusRemote : Copy.Settings.statusLocal)
-                        .font(.system(size: 13))
+                        .paceFont(13)
                         .foregroundStyle(PaceColor.ink2)
                 }
             }
         } header: {
-            Text(Copy.Settings.quickAddRow)
+            headerText(Copy.Settings.quickAddRow)
         }
     }
 
@@ -246,10 +299,10 @@ struct SettingsView: View {
             Button(Copy.Settings.exportJSON) { exportJson() }
             Button(Copy.Settings.restoreFromFile) { showImporter = true }
             if let importMessage {
-                Text(importMessage).font(.system(size: 12)).foregroundStyle(PaceColor.ink2)
+                Text(importMessage).paceFont(12).foregroundStyle(PaceColor.ink2)
             }
         } header: {
-            Text("导出与恢复")
+            headerText("导出与恢复")
         } footer: {
             Text("导出文件通过系统分享面板交给你保存；保存到 iCloud、Drive、微信等外部服务后，由对应服务管理。账本数据只保存在本机，删除 App 且未导出时数据会丢失。")
         }
@@ -309,7 +362,7 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("调试")
+            headerText("调试")
         } footer: {
             Text("只为把失败卡渲染出来看一眼。选完做一次对应的操作，用完自己回到「不制造」，不写盘，正式包里没有这一节。")
         }
@@ -464,7 +517,7 @@ private struct BudgetSaveButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .frame(minHeight: 50)
             .background(
                 enabled ? PaceColor.accent : PaceColor.card2,
                 in: RoundedRectangle(cornerRadius: PaceRadius.block, style: .continuous)
