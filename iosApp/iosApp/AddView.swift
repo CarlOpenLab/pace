@@ -599,9 +599,18 @@ struct AddView: View {
         case .quota:
             return FailureCopy(title: Copy.Ai.Fail.KeyRejected.title, body: Copy.Ai.Fail.Quota.body,
                                primary: Copy.Ai.Fail.KeyRejected.primary, secondary: Copy.Ai.Fail.KeyRejected.secondary)
+        case .badAddress:
+            return FailureCopy(title: Copy.Ai.Fail.BadAddress.title, body: Copy.Ai.Fail.BadAddress.body,
+                               primary: Copy.Ai.Fail.BadAddress.primary, secondary: Copy.Ai.Fail.BadAddress.secondary)
+        case .certificate:
+            return FailureCopy(title: Copy.Ai.Fail.Certificate.title, body: Copy.Ai.Fail.Certificate.body,
+                               primary: Copy.Ai.Fail.Certificate.primary, secondary: Copy.Ai.Fail.Certificate.secondary)
+        case .server:
+            return FailureCopy(title: Copy.Ai.Fail.Server.title, body: Copy.Ai.Fail.Server.body,
+                               primary: Copy.Ai.Fail.Server.primary, secondary: Copy.Ai.Fail.Server.secondary)
         case .addressUnreachable, .notConfigured:
-            return FailureCopy(title: Copy.Ai.Fail.Offline.title, body: Copy.Ai.Fail.Offline.body,
-                               primary: Copy.Ai.Fail.Offline.primary, secondary: Copy.Ai.Fail.Offline.secondary)
+            return FailureCopy(title: Copy.Ai.Fail.Unreachable.title, body: Copy.Ai.Fail.Unreachable.body,
+                               primary: Copy.Ai.Fail.Unreachable.primary, secondary: Copy.Ai.Fail.Unreachable.secondary)
         default:
             return FailureCopy(title: Copy.Ai.Fail.Model.title, body: Copy.Ai.Fail.Model.body,
                                primary: Copy.Ai.Fail.Model.primary, secondary: Copy.Ai.Fail.Model.secondary)

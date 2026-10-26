@@ -445,6 +445,15 @@ struct QuickAddSettingsView: View {
         case .failure(.noModelList):
             listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.noModelList, isWarning: false)
+        case .failure(.offline):
+            listStale = !models.isEmpty
+            modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.offline, isWarning: true)
+        case .failure(.badAddress):
+            listStale = !models.isEmpty
+            modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.badAddress, isWarning: true)
+        case .failure(.certificate):
+            listStale = !models.isEmpty
+            modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.certificate, isWarning: true)
         case .failure(.unreachable):
             listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.unreachable, isWarning: true)
@@ -493,6 +502,14 @@ struct QuickAddSettingsView: View {
             switch result {
             case .ok:
                 return (Copy.Ai.Test.ok, "checkmark.circle.fill", PaceColor.income)
+            case .offline:
+                return (Copy.Ai.Test.offline, "wifi.slash", PaceColor.danger)
+            case .badAddress:
+                return (Copy.Ai.Test.badAddress, "exclamationmark.triangle.fill", PaceColor.danger)
+            case .certificate:
+                return (Copy.Ai.Test.certificate, "lock.trianglebadge.exclamationmark", PaceColor.danger)
+            case .server:
+                return (Copy.Ai.Test.server, "exclamationmark.triangle.fill", PaceColor.danger)
             case .unreachable:
                 return (Copy.Ai.Test.unreachable, "exclamationmark.triangle.fill", PaceColor.danger)
             case .keyRejected:

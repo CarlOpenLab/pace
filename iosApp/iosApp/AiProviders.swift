@@ -65,6 +65,9 @@ enum AiModelList {
     enum Failure: Error {
         case noAddress
         case noKey
+        case offline
+        case badAddress
+        case certificate
         case unreachable
         case keyRejected
         case noModelList
@@ -93,6 +96,22 @@ enum AiModelList {
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
+        } catch let error as URLError {
+            // 和「测试连接」同一套判法：没网、地址错、证书不认，用户要做的三件事不一样。
+            switch error.code {
+            case .notConnectedToInternet, .dataNotAllowed,
+                 .internationalRoamingOff, .callIsActive:
+                return .failure(.offline)
+            case .cannotFindHost, .dnsLookupFailed, .badURL, .unsupportedURL:
+                return .failure(.badAddress)
+            case .secureConnectionFailed, .serverCertificateUntrusted,
+                 .serverCertificateHasBadDate, .serverCertificateNotYetValid,
+                 .serverCertificateHasUnknownRoot, .clientCertificateRejected,
+                 .clientCertificateRequired:
+                return .failure(.certificate)
+            default:
+                return .failure(.unreachable)
+            }
         } catch {
             return .failure(.unreachable)
         }

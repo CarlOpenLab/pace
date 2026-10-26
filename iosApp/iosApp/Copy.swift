@@ -91,7 +91,10 @@ enum Copy {
                 enum Error {
                     static let keyRejected = "这个服务没认这把 Key。检查一下有没有粘全，或者去服务商后台看看它还能不能用、能不能读模型。"
                     static let noModelList = "这个服务不提供模型列表。手填一个模型名就行，服务商文档里有。"
-                    static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
+                    static let unreachable = "连不上这个地址。先看手机有没有网、地址有没有写错。"
+                    static let offline = "手机没联网，读不了模型列表。连上网络再试，或者先手填模型名。"
+                    static let badAddress = "这个地址打不开，读不了模型列表。检查有没有打错，或者少了结尾的 /v1。"
+                    static let certificate = "这台服务器的证书手机不认，读不了模型列表。换成 http 开头的地址，或者把它的证书装到手机上。"
                     static let server = "那边出了点问题，模型列表没取回来。过一会儿再读一次，或者先手填模型名。"
                     static let noKey = "先填 Key，这里会列出这个 Key 能用的模型。"
                     static let noAddress = "先填接口地址，再读模型列表。"
@@ -127,6 +130,10 @@ enum Copy {
             static let ok = "连上了。"
             static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
             static let keyRejected = "Key 没通过。这个服务没认这把 Key，去服务商后台确认一下。"
+            static let offline = "手机没联网。连上网络再试。"
+            static let badAddress = "这个地址打不开，检查有没有打错，或者少了结尾的 /v1。"
+            static let certificate = "这台服务器的证书手机不认。换成 http 开头的地址，或者把它的证书装到手机上。"
+            static let server = "地址通了，是它那边出错了。待会儿再试。"
             static let incomplete = "先把地址和 Key 填上，再把模型选上。"
             static let clearKey = "清空 Key"
             static let clearConfirmTitle = "清空 Key？"
@@ -168,6 +175,38 @@ enum Copy {
             enum Timeout {
                 static let title = "那边没回话"
                 static let body = "等太久了，这次不算。可以再试一次，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
+                static let secondary = "用本机规则再试"
+            }
+
+            /// 地址打不开：域名解析不到、地址本身写错（-1003 / -1006）。
+            enum BadAddress {
+                static let title = "这个地址打不开"
+                static let body = "手机找不到这个地址，多半是有字打错了，或者少了结尾的 /v1。回设置里对着服务商给的那一栏核一遍。账本没有任何变化。"
+                static let primary = "去设置"
+                static let secondary = toManual
+            }
+
+            /// 证书不受信任（-1202 / -1200 / -1201）：跟地址和 Key 都无关，是这一台服务器的证书手机不认。
+            enum Certificate {
+                static let title = "这台服务器的证书手机不认"
+                static let body = "连接被系统拦下了，因为它给的证书不是手机信任的那一种。把地址换成 http 开头的（你自己填的服务器），或者把它的证书装到手机上。账本没有任何变化。"
+                static let primary = toManual
+                static let secondary = "用本机规则再试"
+            }
+
+            /// 服务器自己出错（4xx / 5xx，除了 401、403、402、429）。
+            enum Server {
+                static let title = "服务器那边出问题了"
+                static let body = "地址和 Key 都没问题，是它那边没接住这次请求。待会儿再试一次，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
+                static let secondary = "用本机规则再试"
+            }
+
+            /// 兜底：发不出去，也分不出是哪一环。
+            enum Unreachable {
+                static let title = "连不上这个地址"
+                static let body = "试了也没连上，分不出卡在哪一环。先看手机有没有网、地址有没有写错；都对着，就换个网络再试。账本没有任何变化。"
                 static let primary = toManual
                 static let secondary = "用本机规则再试"
             }

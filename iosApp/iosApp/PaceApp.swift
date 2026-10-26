@@ -166,6 +166,19 @@ struct RootView: View {
             }
             // 启动参数 `-uiNetProbe <地址>`：从 App 内部真发一次 GET，把结果打到控制台。
             // 「连不上」到底是服务器的错还是系统的 ATS 拦的，只有从 App 里发一次才分得清。
+            // 启动参数 `-uiChatProbe <地址>`：走真正的「测试连接」那条路，把判出来的类别打到控制台。
+            // 用来验「连不上」拆开以后每一条都落到哪一类，不用手点表单。
+            if let i = args.firstIndex(of: "-uiChatProbe"), i + 1 < args.count {
+                let endpoint = args[i + 1]
+                let key = (args.firstIndex(of: "-uiChatKey").flatMap { j in
+                    j + 1 < args.count ? args[j + 1] : nil
+                }) ?? "sk-probe"
+                Task {
+                    let config = AiConfig(endpoint: endpoint, model: "probe", key: key)
+                    let result = await AiDraftClient.testConnection(config: config)
+                    print("CHATPROBE \(endpoint) -> \(result)")
+                }
+            }
             if let i = args.firstIndex(of: "-uiNetProbe"), i + 1 < args.count {
                 let probe = args[i + 1]
                 Task {

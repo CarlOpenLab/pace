@@ -27,13 +27,20 @@ enum DraftMissing {
 
 /// 一句话记账的失败情况（界面上各对应一句人话，见 Copy）
 enum AiFailure: Error {
+    /// 手机没网。
     case offline
+    /// 地址本身打不开：域名解析不到、地址写错。和「服务器没连上」分开，因为要做的事不同。
+    case badAddress
+    /// 证书不受信任：跟地址和 Key 都无关，是这台服务器的证书手机不认。
+    case certificate
     case timeout
     case keyRejected
     case quota
     case unreadable
     case empty
+    /// 兜底：发不出去，也分不出是哪一环。
     case addressUnreachable
+    /// 服务器自己回了个非 2xx（状态码进日志，不上屏）。
     case server(Int)
     case notConfigured
 }
@@ -110,6 +117,10 @@ struct AiDraftClient {
 
     enum TestResult {
         case ok
+        case offline
+        case badAddress
+        case certificate
+        case server(Int)
         case unreachable
         case keyRejected
         case incomplete
@@ -125,8 +136,17 @@ struct AiDraftClient {
         do {
             _ = try await send(body: body, config: config)
             return .ok
-        } catch AiFailure.keyRejected {
-            return .keyRejected
+        } catch let failure as AiFailure {
+            // 「连不上」这句今晚把用户绕了一圈：证书不对、服务器出错、地址写错长得一模一样。
+            // 这里逐条分开，分不出来的才归到底。
+            switch failure {
+            case .offline: return .offline
+            case .badAddress: return .badAddress
+            case .certificate: return .certificate
+            case .server(let code): return .server(code)
+            case .keyRejected: return .keyRejected
+            default: return .unreachable
+            }
         } catch {
             return .unreachable
         }
@@ -149,12 +169,28 @@ struct AiDraftClient {
         do {
             (data, response) = try await session.data(for: request)
         } catch let error as URLError {
+            // 分类之前先把原始码写进日志：分错的时候，只有这里能看出它到底报的哪一个。
+            NSLog("[Pace] chat request failed code=%d %@", error.code.rawValue,
+                  error.localizedDescription)
+            // 分开判，是因为「该做什么」不一样：没网要开网，地址错要改地址，
+            // 证书不认要换 http 或装证书。以前全并成一句「连不上这个地址」，用户没法动。
             switch error.code {
-            case .timedOut: throw AiFailure.timeout
-            case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
-                 .cannotFindHost, .dnsLookupFailed, .secureConnectionFailed:
+            case .timedOut:
+                throw AiFailure.timeout
+            case .notConnectedToInternet, .dataNotAllowed,
+                 .internationalRoamingOff, .callIsActive:
                 throw AiFailure.offline
+            // -1005 是「连接中途断了」，不是「没网」：分不清它断在哪一环，归兜底。
+            // 拿它冒充「手机没联网」会让用户去翻开关，而问题在服务器那头。
+            case .cannotFindHost, .dnsLookupFailed, .badURL, .unsupportedURL:
+                throw AiFailure.badAddress
+            case .secureConnectionFailed, .serverCertificateUntrusted,
+                 .serverCertificateHasBadDate, .serverCertificateNotYetValid,
+                 .serverCertificateHasUnknownRoot, .clientCertificateRejected,
+                 .clientCertificateRequired:
+                throw AiFailure.certificate
             default:
+                // 连不上、连接被拒这些分不出具体环节的，归兜底。
                 throw AiFailure.addressUnreachable
             }
         } catch {
@@ -166,7 +202,10 @@ struct AiDraftClient {
         case 200...299: return data
         case 401, 403: throw AiFailure.keyRejected
         case 402, 429: throw AiFailure.quota
-        default: throw AiFailure.server(http.statusCode)
+        default:
+            // 状态码只进日志，不上屏（界面上是「服务器那边出问题了」）。
+            NSLog("[Pace] chat endpoint answered %d", http.statusCode)
+            throw AiFailure.server(http.statusCode)
         }
     }
 
