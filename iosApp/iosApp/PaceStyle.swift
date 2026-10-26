@@ -261,12 +261,18 @@ struct CheckBlockToggleStyle: ToggleStyle {
     private let blockSize: CGFloat = 22
     private let blockCorner: CGFloat = 7
     private let checkGlyphSize: CGFloat = 13
+    /// 块顶相对行框顶的下沉量。行框比字腔高，字号越大差得越多，
+    /// 所以这个值跟着字号长：默认 3 点，最大字号约 9 点，块顶才落在字形顶上（误差 ≤3）。
+    @ScaledMetric(relativeTo: .body) private var blockTopInset: CGFloat = 3
 
     func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: PaceSpace.inner) {
+        // 块和第一行字对齐，不是整行居中：标题两行时居中的块会挂在两行之间，
+        // 看着像掉进缝里。块顶比字顶低 3 点，正好落在字腔里。
+        HStack(alignment: .top, spacing: PaceSpace.inner) {
             configuration.label
             Spacer(minLength: 8)
             block(on: configuration.isOn)
+                .padding(.top, blockTopInset)
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())

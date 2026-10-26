@@ -116,7 +116,7 @@ struct SentenceDraftCard: View {
             .padding(.bottom, 12)
 
             Rectangle()
-                .fill(PaceColor.line)
+                .fill(PaceColor.divider)
                 .frame(height: 0.5)
 
             fieldRow(Copy.Draft.Field.category, value: shortCategory)

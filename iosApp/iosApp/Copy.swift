@@ -412,6 +412,9 @@ enum Copy {
         static let typeGroupA11y = "类型"
         static let sectionAccountBudget = "账户与预算"
         static let accountPlaceholder = "现金、微信、银行卡…"
+        /// 备注框的占位。系统默认的占位色在亮色卡片上只有 1.7:1，读不出来，
+        /// 这里显式给 ink2（亮 4.7:1、暗 7.2:1）。
+        static let notePlaceholder = "例如：午饭"
         static let sectionRefundOriginal = "这笔退的是哪一笔"
         static let noRefundCandidates = "还没有可以关联的支出账单。"
 

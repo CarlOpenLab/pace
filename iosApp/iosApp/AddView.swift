@@ -62,6 +62,8 @@ struct AddView: View {
     @State private var failureCardFrame: CGRect = .zero
     @State private var viewportHeight: CGFloat = 0
     @State private var userScrolled = false
+    /// 滚过顶了没有：顶边那 8 点渐隐只在滚起来之后出现。
+    @State private var scrolledFromTop = false
 
     /// 金额那一行：卡片内容宽、并排所需的宽。
     @State private var cardContentWidth: CGFloat = 0
@@ -169,6 +171,27 @@ struct AddView: View {
             .onPreferenceChange(AddViewportHeightKey.self) { viewportHeight = $0 }
             .onPreferenceChange(FailureCardFrameKey.self) { failureCardFrame = $0 }
             .scrollDismissesKeyboard(.interactively)
+            // 顶边 8 点渐隐，**只在滚过顶之后出现**：停在顶部时第一张卡的顶边不能发灰，
+            // 那是另一个毛病。滚起来之后卡片从切换器底下淡出去，不出现半截字。
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y > 0.5
+            } action: { _, scrolled in
+                scrolledFromTop = scrolled
+            }
+            .mask {
+                if scrolledFromTop {
+                    VStack(spacing: 0) {
+                        LinearGradient(
+                            colors: [PaceColor.canvas.opacity(0), .black],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .frame(height: 8)
+                        Color.black
+                    }
+                } else {
+                    Color.black
+                }
+            }
             .background(PaceColor.canvas.ignoresSafeArea())
             // 切换器钉在导航栏下面，不跟内容滚。视觉上距导航栏 8、距卡片 12；
             // 多出来的 5+5 是把 34 高的胶囊撑成 44 的点击区，见 AddModeSwitcher。
@@ -177,7 +200,9 @@ struct AddView: View {
                     AddModeSwitcher(mode: modeBinding)
                         .padding(.horizontal, PaceSpace.screen)
                         .padding(.top, 3)
-                        .padding(.bottom, 7)
+                        // 下内距 7 → 2：切线和胶囊下沿的差要 ≤2 点。差得多了，中间那截画布
+                        // 会让字看起来是「凭空从一条线下面开始」，而不是从玻璃底下滑过去。
+                        .padding(.bottom, 2)
                         .background(PaceColor.canvas)
                 }
             }
@@ -1006,9 +1031,13 @@ struct AddView: View {
                 .font(PaceType.rowTitle)
                 .foregroundStyle(PaceColor.ink)
 
-            TextField("例如：午饭", text: $note)
-                .font(PaceType.body)
-                .foregroundStyle(PaceColor.ink)
+            TextField(
+                "",
+                text: $note,
+                prompt: Text(Copy.Add.notePlaceholder).foregroundColor(PaceColor.ink2)
+            )
+            .font(PaceType.body)
+            .foregroundStyle(PaceColor.ink)
                 .submitLabel(.done)
         }
         .frame(minHeight: 24)
