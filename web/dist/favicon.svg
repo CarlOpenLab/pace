@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pace">
-  <rect width="64" height="64" rx="14" fill="#0C0C0D"/>
-  <text x="32" y="44" font-family="-apple-system, 'SF Pro Rounded', system-ui, sans-serif"
-        font-size="34" font-weight="700" fill="#F5F5F7" text-anchor="middle">P</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Pace">
+  <rect width="1024" height="1024" fill="#0C0C0D"/>
+  <rect x="262" y="286" width="500" height="112" rx="56" fill="#F7F7F7"/>
+  <rect x="262" y="462" width="366" height="112" rx="56" fill="#F7F7F7"/>
+  <rect x="262" y="638" width="228" height="112" rx="56" fill="#F7F7F7" opacity="0.6"/>
 </svg>
