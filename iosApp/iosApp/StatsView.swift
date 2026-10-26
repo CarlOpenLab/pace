@@ -2,173 +2,426 @@ import SwiftUI
 import shared
 
 private enum StatsKind: String, CaseIterable, Identifiable {
-    case week = "本周"
-    case month = "本月"
+    case week
+    case month
+
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .week: return Copy.Stats.week
+        case .month: return Copy.Stats.month
+        }
+    }
 }
 
-/// 统计页：玻璃卡片式周/月汇总、分类排行、每日预算对比（PLAN §7 页面 4）
+/// 统计页：汇总卡 + 花在哪了 + 每天花了多少（墨黑规范第二批 §2）。
+/// 实底卡片、无渐变；颜色只用于收入与超支。
 struct StatsView: View {
-    @State private var kind: StatsKind = .week
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var stats: RangeStats? {
-        let api = LedgerStore.shared.api
-        let today = LedgerStore.shared.todayIso
-        guard let range = kind == .week ? api.weekRange(todayIso: today) : api.monthRange(todayIso: today) else {
-            return nil
-        }
-        return api.rangeStats(fromLocalDate: range.from, toLocalDate: range.to)
-    }
+    @State private var kind: StatsKind = .week
+    @State private var stats: RangeStats?
+    @State private var showSkeleton = false
+    @State private var hasLoaded = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                GlassBackground()
-                if let data = stats {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            picker
-                            summaryCard(data)
-                            categoryCard(data)
-                            dailyCard(data)
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.top, 8)
-                        .padding(.bottom, 100)
-                    }
-                } else {
-                    ProgressView("加载中…")
+            ScrollView {
+                VStack(spacing: PaceSpace.cardGap) {
+                    picker
+                    content
                 }
+                .padding(.horizontal, PaceSpace.screen)
+                .padding(.top, 8)
+                // 给底栏上方的系统「记一笔」附件留出滚动余量
+                .padding(.bottom, 100)
             }
-            .navigationTitle("统计")
+            .paceScreen()
+            .navigationTitle(Copy.Stats.title)
+        }
+        .task { await load() }
+        .onAppear {
+            if hasLoaded { refresh() }
+        }
+        .onChange(of: kind) { _, _ in refresh() }
+        .onChange(of: appState.showAdd) { _, showing in
+            if !showing { refresh() }
+        }
+        .onChange(of: appState.showDrafts) { _, showing in
+            if !showing { refresh() }
         }
     }
 
+    // MARK: - 范围与内容
+
     private var picker: some View {
-        HStack(spacing: 8) {
-            ForEach(StatsKind.allCases) { k in
-                Button(k.rawValue) {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { kind = k }
-                }
-                .buttonStyle(GlassCapsuleButtonStyle(prominent: kind == k))
+        Picker(selection: $kind) {
+            ForEach(StatsKind.allCases) { kind in
+                Text(kind.title).tag(kind)
             }
-            Spacer()
+        } label: {
+            EmptyView()
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let data = stats {
+            summaryCard(data)
+            categoryCard(data)
+            dailyCard(data)
+        } else if showSkeleton {
+            skeleton
+        }
+    }
+
+    // MARK: - 数据
+
+    /// 保持现有计算口径：本周 / 本月都走 shared 的区间与统计接口。
+    private func makeStats() -> RangeStats? {
+        let api = LedgerStore.shared.api
+        let today = LedgerStore.shared.todayIso
+        switch kind {
+        case .week:
+            guard let range = api.weekRange(todayIso: today) else { return nil }
+            return api.rangeStats(fromLocalDate: range.from, toLocalDate: range.to)
+        case .month:
+            guard let range = api.monthRange(todayIso: today) else { return nil }
+            return api.rangeStats(fromLocalDate: range.from, toLocalDate: range.to)
+        }
+    }
+
+    /// 本地读取通常很快；超过 300ms 仍没数据时才显示骨架，避免闪一下。
+    @MainActor
+    private func load() async {
+        guard stats == nil else { return }
+
+        let skeletonTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, stats == nil else { return }
+            withAnimation(.easeOut(duration: 0.15)) { showSkeleton = true }
+        }
+
+        try? await Task.sleep(for: .milliseconds(80))
+        guard !Task.isCancelled else {
+            skeletonTask.cancel()
+            return
+        }
+
+        let data = makeStats()
+        skeletonTask.cancel()
+
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86)) {
+            stats = data
+            showSkeleton = false
+            hasLoaded = true
+        }
+    }
+
+    private func refresh() {
+        let data = makeStats()
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.35)) {
+            stats = data
+            showSkeleton = false
+            hasLoaded = true
+        }
+    }
+
+    // MARK: - 加载骨架
+
+    private var skeleton: some View {
+        VStack(spacing: PaceSpace.cardGap) {
+            VStack(alignment: .leading, spacing: 12) {
+                skeletonBlock(width: 124, height: 11)
+                skeletonBlock(width: 196, height: 38)
+
+                HStack(spacing: 10) {
+                    skeletonCell
+                    skeletonCell
+                }
+                HStack(spacing: 10) {
+                    skeletonCell
+                    skeletonCell
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .paceCard(radius: PaceRadius.card, padding: PaceSpace.cardPadding)
+
+            VStack(spacing: 12) {
+                skeletonRow
+                skeletonRow
+            }
+        }
+        .redacted(reason: .placeholder)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(Copy.Stats.loading))
+    }
+
+    private func skeletonBlock(width: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .fill(PaceColor.card2)
+            .frame(width: width, height: height)
+    }
+
+    private var skeletonCell: some View {
+        RoundedRectangle(cornerRadius: PaceRadius.block, style: .continuous)
+            .fill(PaceColor.card2)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+    }
+
+    private var skeletonRow: some View {
+        HStack(spacing: 12) {
+            skeletonBlock(width: 44, height: 12)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(PaceColor.card2)
+                .frame(maxWidth: .infinity)
+                .frame(height: 8)
+            skeletonBlock(width: 112, height: 11)
         }
     }
 
     // MARK: - 汇总卡
 
     private func summaryCard(_ data: RangeStats) -> some View {
-        let store = LedgerStore.shared
-        return VStack(alignment: .leading, spacing: 14) {
-            Text("\(data.fromLocalDate) ~ \(data.toLocalDate)")
-                .font(.system(.caption, design: .rounded).weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(dateRangeText(from: data.fromLocalDate, to: data.toLocalDate))
+                    .font(.system(size: 11))
+                    .foregroundStyle(PaceColor.ink2)
 
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("支出")
-                    .font(.system(.headline, design: .rounded))
-                    .foregroundStyle(.secondary)
-                Text(store.format(data.totalExpenseAll))
-                    .font(.system(size: 38, weight: .heavy, design: .rounded))
-                    .foregroundStyle(PaceGradients.accent)
-            }
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(Copy.Stats.expense)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(PaceColor.ink2)
 
-            HStack(spacing: 14) {
-                statChip(label: "计入预算", value: store.format(data.totalExpenseInBudget))
-                statChip(label: "退款冲减", value: store.format(data.refundTotal))
-                statChip(label: "收入", value: store.format(data.incomeTotal))
-            }
-            HStack(spacing: 14) {
-                statChip(label: "转账", value: store.format(data.transferTotal), note: "不计入支出")
-                if data.overspentDays > 0 {
-                    statChip(label: "超支", value: "\(data.overspentDays) 天", danger: true)
-                } else {
-                    statChip(label: "超支", value: "0 天")
+                    Text(LedgerStore.shared.format(data.totalExpenseAll))
+                        .font(.system(size: 38, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(PaceColor.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
-                Spacer()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(summaryAccessibilityLabel(data)))
+
+            LazyVGrid(columns: gridColumns, spacing: 10) {
+                statCell(
+                    label: Copy.Stats.Filter.countInBudget,
+                    value: LedgerStore.shared.format(data.totalExpenseInBudget),
+                    valueColor: PaceColor.ink,
+                    spokenValue: Copy.Stats.spokenAmount(data.totalExpenseInBudget)
+                )
+                statCell(
+                    label: Copy.Stats.refundOffset,
+                    value: LedgerStore.shared.format(data.refundTotal),
+                    valueColor: PaceColor.ink,
+                    spokenValue: Copy.Stats.spokenAmount(data.refundTotal)
+                )
+                statCell(
+                    label: Copy.Stats.Filter.income,
+                    value: LedgerStore.shared.format(data.incomeTotal),
+                    valueColor: PaceColor.income,
+                    spokenValue: Copy.Stats.spokenAmount(data.incomeTotal)
+                )
+                statCell(
+                    label: Copy.Stats.overspent,
+                    value: Copy.Stats.overspentDays(Int(data.overspentDays)),
+                    valueColor: PaceColor.danger,
+                    spokenValue: Copy.Stats.overspentDays(Int(data.overspentDays))
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: 28, padding: 20)
+        .paceCard(radius: PaceRadius.card, padding: PaceSpace.cardPadding)
+        // 卡片分组朗读；内部四格仍是各自独立的无障碍元素。
+        .accessibilityElement(children: .contain)
     }
 
-    private func statChip(label: String, value: String, note: String? = nil, danger: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private var gridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
+    }
+
+    private func statCell(
+        label: String,
+        value: String,
+        valueColor: Color,
+        spokenValue: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(.caption2, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11))
+                .foregroundStyle(PaceColor.ink2)
+                .lineLimit(1)
             Text(value)
-                .font(.system(.subheadline, design: .rounded).weight(.bold))
-                .foregroundStyle(danger ? Color(red: 0.85, green: 0.30, blue: 0.32) : .primary)
-            if let note {
-                Text(note)
-                    .font(.system(size: 9, design: .rounded))
-                    .foregroundStyle(.tertiary)
-            }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.22)))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3), lineWidth: 1))
+        .padding(.vertical, 10)
+        .background(PaceColor.card2, in: RoundedRectangle(cornerRadius: PaceRadius.block, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(spokenValue))
     }
 
-    // MARK: - 分类排行卡
+    // MARK: - 花在哪了
 
     private func categoryCard(_ data: RangeStats) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("分类排行", systemImage: "chart.pie.fill")
-                .font(.system(.headline, design: .rounded))
-            let items = Array(data.byCategory)
+        let items = Array(data.byCategory)
+        return VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            Text(Copy.Stats.categoryRanking)
+                .font(.headline)
+                .foregroundStyle(PaceColor.ink)
+
             if items.isEmpty {
-                Text("暂无支出记录。")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 8)
+                Text(Copy.Stats.empty)
+                    .font(.system(size: 13))
+                    .foregroundStyle(PaceColor.ink2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
             } else {
-                ForEach(items, id: \.category) { item in
-                    HStack(spacing: 10) {
-                        Circle()
-                            .fill(PaceGradients.accent.opacity(0.85))
-                            .frame(width: 8, height: 8)
-                        Text(item.category)
-                            .font(.system(.subheadline, design: .rounded).weight(.medium))
-                        Spacer()
-                        Text("\(LedgerStore.shared.format(item.amountMinor)) · \(Int(item.ratio * 100))%")
-                            .font(.system(.caption, design: .rounded).weight(.semibold))
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(items.prefix(6)), id: \.category) { item in
+                        categoryRow(item)
                     }
-                    GlassProgress(ratio: item.ratio >= 1 ? 1 : item.ratio)
+                }
+
+                if items.count > 6 {
+                    Text(Copy.Stats.moreCategories(items.count - 6))
+                        .font(.system(size: 13))
+                        .foregroundStyle(PaceColor.ink2)
                 }
             }
         }
-        .glassCard(cornerRadius: 26, padding: 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .paceCard()
     }
 
-    // MARK: - 每日预算对比卡
+    private func categoryRow(_ item: CategorySpend) -> some View {
+        let percent = Int((item.ratio * 100).rounded())
+        let ratio = min(max(item.ratio, 0), 1)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(item.category)
+                    .font(.system(size: 15))
+                    .foregroundStyle(PaceColor.ink)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                Text("\(LedgerStore.shared.format(item.amountMinor)) · \(percent)%")
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(PaceColor.ink2)
+                    .lineLimit(1)
+            }
+
+            PaceBar(ratio: ratio)
+                .accessibilityLabel(Text(item.category))
+                .accessibilityValue(Text(Copy.Stats.ratioA11y(percent)))
+        }
+    }
+
+    // MARK: - 每天花了多少
 
     private func dailyCard(_ data: RangeStats) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("每日预算对比", systemImage: "chart.bar.doc.horizontal.fill")
-                .font(.system(.headline, design: .rounded))
-            ForEach(Array(data.daily), id: \.localDate) { day in
-                let ratio: Double = day.hasBudget && day.budgetMinor > 0
-                    ? min(Double(max(day.netSpentMinor, 0)) / Double(day.budgetMinor), 1.0)
-                    : 0
-                HStack(spacing: 10) {
-                    Text(String(day.localDate.dropFirst(5)))
-                        .font(.system(.caption, design: .rounded).weight(.medium))
-                        .frame(width: 42, alignment: .leading)
-                    GlassProgress(ratio: day.overspent ? 1 : ratio, danger: day.overspent)
-                    Text(day.hasBudget
-                         ? "\(LedgerStore.shared.format(day.netSpentMinor)) / \(LedgerStore.shared.format(day.budgetMinor))"
-                         : LedgerStore.shared.format(day.netSpentMinor))
-                        .font(.system(size: 10, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 128, alignment: .trailing)
+        let days = Array(data.daily)
+        return VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            Text(Copy.Stats.dailyBudget)
+                .font(.headline)
+                .foregroundStyle(PaceColor.ink)
+
+            if days.isEmpty {
+                Text(Copy.Stats.empty)
+                    .font(.system(size: 13))
+                    .foregroundStyle(PaceColor.ink2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(days, id: \.localDate) { day in
+                        dailyRow(day)
+                    }
                 }
             }
+
+            Text(Copy.Stats.dailyFormula)
+                .font(.system(size: 11))
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .glassCard(cornerRadius: 26, padding: 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .paceCard()
+    }
+
+    private func dailyRow(_ day: DailyOverview) -> some View {
+        HStack(spacing: 8) {
+            Text(shortDate(day.localDate))
+                .font(.system(size: 12))
+                .foregroundStyle(day.overspent ? PaceColor.danger : PaceColor.ink)
+                .frame(width: 44, alignment: .leading)
+                .lineLimit(1)
+
+            PaceBar(ratio: dailyRatio(day), danger: day.overspent)
+                .accessibilityLabel(Text(shortDate(day.localDate)))
+                .accessibilityValue(Text(Copy.Stats.usedA11y(dailyPercent(day))))
+
+            Text(dailyAmountText(day))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(PaceColor.ink2)
+                .frame(width: 128, alignment: .trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    private func dailyRatio(_ day: DailyOverview) -> Double {
+        guard day.hasBudget, day.budgetMinor > 0 else { return 0 }
+        let used = Double(max(day.netSpentMinor, 0)) / Double(day.budgetMinor)
+        return min(max(used, 0), 1)
+    }
+
+    private func dailyPercent(_ day: DailyOverview) -> Int {
+        guard day.hasBudget, day.budgetMinor > 0 else { return 0 }
+        let used = Double(max(day.netSpentMinor, 0)) / Double(day.budgetMinor) * 100
+        return max(0, Int(used.rounded()))
+    }
+
+    private func dailyAmountText(_ day: DailyOverview) -> String {
+        let spent = LedgerStore.shared.format(day.netSpentMinor)
+        guard day.hasBudget else { return spent }
+        return "\(spent) / \(LedgerStore.shared.format(day.budgetMinor))"
+    }
+
+    // MARK: - 日期与无障碍文案
+
+    private func dateRangeText(from: String, to: String) -> String {
+        "\(monthDay(from)) – \(monthDay(to))"
+    }
+
+    private func monthDay(_ iso: String) -> String {
+        let parts = iso.split(separator: "-")
+        guard parts.count == 3,
+              let month = Int(parts[1]),
+              let day = Int(parts[2]) else { return iso }
+        return Copy.Stats.monthDay(month: month, day: day)
+    }
+
+    private func shortDate(_ iso: String) -> String {
+        guard iso.count >= 10 else { return iso }
+        return String(iso.dropFirst(5))
+    }
+
+    private func summaryAccessibilityLabel(_ data: RangeStats) -> String {
+        "\(dateRangeText(from: data.fromLocalDate, to: data.toLocalDate))，\(Copy.Stats.expense) \(Copy.Stats.spokenAmount(data.totalExpenseAll))"
     }
 }

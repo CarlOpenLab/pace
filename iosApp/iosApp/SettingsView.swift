@@ -16,6 +16,9 @@ struct SettingsView: View {
     @State private var importMessage: String?
     @State private var exportShareItem: ShareItem?
     @State private var showImporter = false
+    @State private var showSavedBadge = false
+
+    @EnvironmentObject private var ai: AiSettings
 
     private var currentBudget: BudgetRule? {
         LedgerStore.shared.api.budgetFor(localDate: LedgerStore.shared.todayIso)
@@ -24,54 +27,23 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("每日预算") {
-                    if let rule = currentBudget {
-                        Text("当前 \(LedgerStore.shared.format(rule.dailyAmountMinor))（自 \(rule.effectiveFromLocalDate) 生效）")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("尚未设置预算")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    TextField("每日预算（元）", text: $budgetText)
-                        .keyboardType(.decimalPad)
-                    TextField("生效日期（yyyy-MM-dd）", text: $effectiveFrom)
-                    Button("保存预算") { saveBudget() }
-                    Text("修改预算从指定生效日开始，不重写历史。")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                budgetSection
+                quickAddSection
+                transferSection
+                dataSection
 
                 Section {
-                    Button("导出 CSV") { exportCsv() }
-                    Button("导出 JSON") { exportJson() }
-                    Button("从 JSON 恢复…") { showImporter = true }
-                    if let importMessage {
-                        Text(importMessage).font(.footnote).foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("导出与恢复")
+                    EmptyView()
                 } footer: {
-                    Text("导出文件通过系统分享面板交给你保存；保存到 iCloud/Drive/微信等外部服务后，由对应服务管理。账本数据只保存在本机，删除 App 且未导出时数据将丢失。")
-                }
-
-                Section("隐私与 AI") {
-                    Text("""
-                    · 当前为本地隐私模式：账本内容不离开设备。
-                    · AI 功能默认关闭，记账与统计完全不依赖 AI。
-                    · AI 仅用于把你的输入整理成待确认草稿，永不直接修改账本。
-                    """)
-                    .font(.footnote)
-                }
-
-                Section("数据") {
-                    Button("清空全部数据…", role: .destructive) { confirmClear = true }
+                    Text(Copy.Settings.version(versionText))
+                        .font(.system(size: 11))
+                        .foregroundStyle(PaceColor.ink2)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(PaceColor.canvas)
             .navigationTitle("设置")
-            .listRowBackground(GlassRowBackground())
-            .glassFormStyle()
             .id(refreshToken)
             .onAppear {
                 if budgetText.isEmpty, let rule = currentBudget {
@@ -88,14 +60,14 @@ struct SettingsView: View {
                           let data = try? Data(contentsOf: url),
                           let text = String(data: data, encoding: .utf8) else {
                         url.stopAccessingSecurityScopedResource()
-                        importMessage = "无法读取文件"
+                        importMessage = Copy.Settings.Import.Issue.unknown
                         return
                     }
                     url.stopAccessingSecurityScopedResource()
                     importJsonText = text
                     importPreview = LedgerStore.shared.api.previewImport(jsonText: text)
                 case .failure:
-                    importMessage = "无法读取文件"
+                    importMessage = Copy.Settings.Import.Issue.unknown
                 }
             }
             .sheet(isPresented: Binding(
@@ -104,24 +76,172 @@ struct SettingsView: View {
             )) {
                 importPreviewSheet
             }
-            .alert("替换当前账本？", isPresented: $confirmReplace) {
-                Button("确认替换", role: .destructive) { applyImport(mode: "REPLACE") }
-                Button("取消", role: .cancel) {}
+            .alert(Copy.Confirm.ReplaceLedger.title, isPresented: $confirmReplace) {
+                Button(Copy.Confirm.ReplaceLedger.primary, role: .destructive) { applyImport(mode: "REPLACE") }
+                Button(Copy.Settings.cancel, role: .cancel) {}
             } message: {
-                Text("当前全部账单、预算和分类将被删除，并以导入文件替换。此操作无法撤销。")
+                Text(Copy.Confirm.ReplaceLedger.body)
             }
-            .alert("清空全部数据？", isPresented: $confirmClear) {
-                Button("确认清空", role: .destructive) {
+            .alert(Copy.Settings.clearConfirmTitle, isPresented: $confirmClear) {
+                Button(Copy.Settings.clearConfirm, role: .destructive) {
                     if LedgerStore.shared.api.clearAllData() {
-                        importMessage = "已清空全部数据"
+                        importMessage = nil
                     }
                     refreshToken += 1
                 }
-                Button("取消", role: .cancel) {}
+                Button(Copy.Settings.cancel, role: .cancel) {}
             } message: {
-                Text("将删除所有账单、预算规则和自定义分类。此操作无法撤销，请先导出备份。")
+                Text("\(Copy.Settings.clearConfirmBody)\n\(Copy.Settings.clearConfirmKeyNote)")
             }
         }
+    }
+
+    // MARK: - 每日预算
+
+    private var budgetSection: some View {
+        Section {
+            if let rule = currentBudget {
+                let parts = rule.effectiveFromLocalDate.split(separator: "-")
+                let month = Int(parts.count > 1 ? String(parts[1]) : "") ?? 1
+                let day = Int(parts.count > 2 ? String(parts[2]) : "") ?? 1
+                Text(Copy.Settings.currentBudget(
+                    amount: Money.shared.formatMinor(amountMinor: rule.dailyAmountMinor),
+                    month: month,
+                    day: day
+                ))
+                .font(.system(size: 11))
+                .foregroundStyle(PaceColor.ink2)
+            } else {
+                Text(Copy.Settings.noBudget)
+                    .font(.system(size: 11))
+                    .foregroundStyle(PaceColor.ink2)
+            }
+
+            HStack {
+                Text(Copy.Settings.dailyBudget)
+                Spacer()
+                TextField(Copy.Settings.budgetPlaceholder, text: $budgetText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            HStack {
+                Text(Copy.Settings.effectiveDate)
+                Spacer()
+                // 界面上写「10月26日」；系统紧凑选择器只做背后的交互。
+                Text(displayDate)
+                    .font(.system(size: 15))
+                    .foregroundStyle(PaceColor.ink)
+                    .overlay {
+                        DatePicker("", selection: dateBinding, displayedComponents: .date)
+                            .labelsHidden()
+                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                            .opacity(0.02)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))
+            }
+
+            Button {
+                saveBudget()
+            } label: {
+                HStack {
+                    Text(Copy.Settings.saveBudget)
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                    if showSavedBadge {
+                        Text(Copy.Settings.savedBadge)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(PaceColor.income)
+                    }
+                }
+            }
+
+            if let budgetError {
+                Text(budgetError)
+                    .font(.system(size: 12))
+                    .foregroundStyle(PaceColor.danger)
+            }
+        } header: {
+            Text(Copy.Settings.dailyBudget)
+        } footer: {
+            Text(Copy.Settings.budgetFooter)
+        }
+    }
+
+    private var dateBinding: Binding<Date> {
+        Binding(
+            get: { Self.isoFormatter.date(from: effectiveFrom) ?? Date() },
+            set: { effectiveFrom = Self.isoFormatter.string(from: $0) }
+        )
+    }
+
+    /// 「10月26日」——界面上的日期不用机器格式。
+    private var displayDate: String {
+        let parts = effectiveFrom.split(separator: "-")
+        guard parts.count == 3, let month = Int(parts[1]), let day = Int(parts[2]) else { return effectiveFrom }
+        return "\(month)月\(day)日"
+    }
+
+    private static let isoFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: LedgerStore.shared.timezoneId) ?? .current
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    // MARK: - 记账
+
+    private var quickAddSection: some View {
+        Section {
+            NavigationLink {
+                QuickAddSettingsView()
+            } label: {
+                HStack {
+                    Text(Copy.Settings.quickAddStatusRow)
+                    Spacer()
+                    Text(ai.usesRemoteModel ? Copy.Settings.statusRemote : Copy.Settings.statusLocal)
+                        .font(.system(size: 13))
+                        .foregroundStyle(PaceColor.ink2)
+                }
+            }
+        } header: {
+            Text(Copy.Settings.quickAddRow)
+        }
+    }
+
+    // MARK: - 导出与恢复
+
+    private var transferSection: some View {
+        Section {
+            Button(Copy.Settings.exportCSV) { exportCsv() }
+            Button(Copy.Settings.exportJSON) { exportJson() }
+            Button(Copy.Settings.restoreFromFile) { showImporter = true }
+            if let importMessage {
+                Text(importMessage).font(.system(size: 12)).foregroundStyle(PaceColor.ink2)
+            }
+        } header: {
+            Text("导出与恢复")
+        } footer: {
+            Text("导出文件通过系统分享面板交给你保存；保存到 iCloud、Drive、微信等外部服务后，由对应服务管理。账本数据只保存在本机，删除 App 且未导出时数据会丢失。")
+        }
+    }
+
+    // MARK: - 数据
+
+    private var dataSection: some View {
+        Section("数据") {
+            Button(Copy.Settings.clearLedger, role: .destructive) { confirmClear = true }
+        }
+    }
+
+    private var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        let build = info?["CFBundleVersion"] as? String ?? "0"
+        return "\(version) (\(build))"
     }
 
     // MARK: 预算
@@ -137,6 +257,11 @@ struct SettingsView: View {
         } else {
             budgetError = nil
             refreshToken += 1
+            withAnimation { showSavedBadge = true }
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                withAnimation { showSavedBadge = false }
+            }
         }
     }
 
@@ -188,12 +313,12 @@ struct SettingsView: View {
                         List {
                             Text("账单 \(preview.transactionCount) 笔（\(preview.firstLocalDate ?? "无") ~ \(preview.lastLocalDate ?? "无")）")
                             Text("分类 \(preview.categoryCount) · 预算规则 \(preview.budgetRuleCount)")
-                            Text("与现有账本重复 \(preview.duplicateCount) 笔")
+                            Text(Copy.Settings.Import.previewDuplicates(count: Int(preview.duplicateCount)))
                             Section {
                                 Button("合并到现有账本") { applyImport(mode: "MERGE") }
                                 Button("替换当前账本…", role: .destructive) { confirmReplace = true }
                             } footer: {
-                                Text("合并：跳过重复，保留现有账本。\n替换：清空当前账本后写入。")
+                                Text(Copy.Settings.Import.mergeOrReplaceNote)
                             }
                         }
                     } else {
@@ -210,7 +335,7 @@ struct SettingsView: View {
             .navigationTitle("恢复预览")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
+                    Button(Copy.Settings.cancel) {
                         importPreview = nil
                         importJsonText = nil
                     }
@@ -219,15 +344,30 @@ struct SettingsView: View {
         }
     }
 
+    /// 导入失败：错误码只写日志，界面上说人话。
+    private func importProblem(_ errors: [String]) -> String {
+        for raw in errors {
+            let code = raw.split(separator: ":").first.map(String.init) ?? raw
+            switch code.trimmingCharacters(in: .whitespaces) {
+            case "INVALID_AMOUNT": return Copy.Settings.Import.Issue.invalidAmount
+            case "INVALID_DATE": return Copy.Settings.Import.Issue.invalidDate
+            case "INVALID_TYPE", "INVALID_CATEGORY": return Copy.Settings.Import.Issue.invalidTypeOrCategory
+            case "NOTE_TOO_LONG": return Copy.Settings.Import.Issue.noteTooLong
+            default: continue
+            }
+        }
+        return Copy.Settings.Import.Issue.unknown
+    }
+
     private func applyImport(mode: String) {
         guard let json = importJsonText else { return }
         let result = LedgerStore.shared.api.applyImport(jsonText: json, mode: mode)
         if result.applied {
             importMessage = mode == "REPLACE"
                 ? "已替换：写入 \(result.insertedCount) 笔"
-                : "已合并：新入 \(result.insertedCount) 笔，跳过 \(result.skippedCount) 条"
+                : Copy.Settings.Import.merged(added: Int(result.insertedCount), skipped: Int(result.skippedCount))
         } else {
-            importMessage = "导入失败，原账本未变更：\(result.errors.prefix(3).joined(separator: ", "))"
+            importMessage = Copy.Settings.Import.Issue.failed(reason: importProblem(result.errors))
         }
         importPreview = nil
         importJsonText = nil

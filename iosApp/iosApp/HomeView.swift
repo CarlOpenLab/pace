@@ -1,228 +1,360 @@
 import SwiftUI
 import shared
 
-/// 首页：玻璃质感今日预算卡 + 今日账单（PLAN §7 页面 1）
+/// 首页：今日预算卡 + 今日账单（规范第一批 §6 / §10 / §11）。
+/// 靠排版撑层次：近黑与白；颜色只做三件事——黑＝选中与按钮，绿＝收入，红＝超支。
 struct HomeView: View {
+    @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var ai: AiSettings
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 56
+
     @State private var overview: TodayOverview?
-    @State private var showAdd = false
-    @State private var editingTxnId: String?
+    @State private var showSkeleton = false
+    @State private var hasLoaded = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                GlassBackground()
-                if let data = overview {
-                    ScrollView {
-                        VStack(spacing: 18) {
-                            budgetCard(data)
-                            todayCard(data)
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.top, 8)
-                        .padding(.bottom, 110)
-                    }
-                } else {
-                    ProgressView("加载中…")
+            ScrollView {
+                VStack(spacing: PaceSpace.cardGap) {
+                    content
                 }
+                .padding(.horizontal, PaceSpace.screen)
+                .padding(.top, 8)
+                // 给右下角浮着的「记一笔」留出滚动余量（76）
+                .padding(.bottom, 76)
             }
-            .navigationTitle("Pace")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showAdd = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // 悬浮玻璃胶囊「记一笔」
-                Button {
-                    showAdd = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 17, weight: .bold))
-                        Text("记一笔")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(GlassCapsuleButtonStyle(prominent: true))
-                .padding(.horizontal, 24)
-                .padding(.bottom, 72)
-                .frame(maxWidth: 340)
-                .frame(maxWidth: .infinity)
-            }
-            .sheet(isPresented: $showAdd, onDismiss: reload) {
-                AddView(txnId: nil)
-            }
-            .sheet(item: Binding(
-                get: { editingTxnId.map { TxnIdBox(id: $0) } },
-                set: { editingTxnId = $0?.id }
-            ), onDismiss: reload) { box in
-                AddView(txnId: box.id)
-            }
-            .onAppear(perform: reload)
+            .tracksFabScroll()
+            .paceScreen()
+            .navigationTitle(Copy.appName)
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .task { await load() }
+        .onAppear {
+            if hasLoaded { refresh() }
+        }
+        .onChange(of: state.showAdd) { _, showing in
+            if !showing { refresh() }
+        }
+        .onChange(of: state.showDrafts) { _, showing in
+            if !showing { refresh() }
         }
     }
 
-    private func reload() {
-        overview = LedgerStore.shared.api.todayOverview(todayIso: LedgerStore.shared.todayIso)
+    // MARK: - 内容与状态
+
+    @ViewBuilder
+    private var content: some View {
+        if let data = overview {
+            budgetCard(data)
+                .transition(cardTransition)
+            todayCard(data)
+                .transition(cardTransition)
+        } else if showSkeleton {
+            VStack(spacing: PaceSpace.cardGap) {
+                SkeletonCard(height: 216)
+                SkeletonCard(height: 200)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(Copy.Home.loading))
+        }
     }
 
-    // MARK: - 玻璃预算大卡
+    private var cardTransition: AnyTransition {
+        reduceMotion ? .opacity : .offset(y: 8).combined(with: .opacity)
+    }
+
+    /// 先让第一帧画出来；本地读取通常很快，因此不会闪骨架。
+    /// 只有超过 300ms 仍未拿到数据时才出现骨架（规范 §6「加载」）。
+    @MainActor
+    private func load() async {
+        guard overview == nil else { return }
+
+        let skeleton = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, overview == nil else { return }
+            withAnimation(.easeOut(duration: 0.15)) { showSkeleton = true }
+        }
+
+        try? await Task.sleep(for: .milliseconds(80))
+        guard !Task.isCancelled else {
+            skeleton.cancel()
+            return
+        }
+
+        let data = LedgerStore.shared.api.todayOverview(todayIso: LedgerStore.shared.todayIso)
+        skeleton.cancel()
+
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86)) {
+            overview = data
+            showSkeleton = false
+            hasLoaded = true
+        }
+    }
+
+    private func refresh() {
+        let data = LedgerStore.shared.api.todayOverview(todayIso: LedgerStore.shared.todayIso)
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.35)) {
+            overview = data
+            showSkeleton = false
+            hasLoaded = true
+        }
+    }
+
+    // MARK: - 预算卡
 
     @ViewBuilder
     private func budgetCard(_ data: TodayOverview) -> some View {
-        let store = LedgerStore.shared
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("今天 · \(String(data.localDate.dropFirst(5)))", systemImage: "sparkles")
-                    .font(.system(.footnote, design: .rounded).weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                GlassPill(text: data.hasBudget ? (data.overspent ? "已超支" : "预算中") : "未设预算",
-                          systemImage: data.hasBudget ? (data.overspent ? "exclamationmark.triangle.fill" : "checkmark.seal.fill") : "gearshape.fill",
-                          danger: data.overspent)
+        if data.hasBudget {
+            budgetContent(data)
+                .paceCard(radius: PaceRadius.hero, padding: PaceSpace.heroPadding)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(budgetAccessibilityLabel(data)))
+                .accessibilityValue(Text("已用 \(usedPercent(data))%"))
+        } else {
+            noBudgetContent(data)
+                .paceCard(radius: PaceRadius.hero, padding: PaceSpace.heroPadding)
+        }
+    }
+
+    private func budgetContent(_ data: TodayOverview) -> some View {
+        VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            header(data)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(data.overspent ? Copy.Home.remainingOverspentLabel : Copy.Home.remainingLabel)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(PaceColor.ink2)
+                heroAmount(data)
             }
 
-            if !data.hasBudget {
-                Text("未设置预算")
-                    .font(.system(.title, design: .rounded).weight(.bold))
-                Text("到「设置 → 每日预算」设置额度后开始追踪。")
+            PaceBar(ratio: barRatio(data), danger: data.overspent)
+                .accessibilityValue(Text("已用 \(usedPercent(data))%"))
+
+            Text(Copy.Home.budgetSpent(
+                budget: plainAmount(data.budgetMinor),
+                spent: plainAmount(max(data.netSpentMinor, 0))
+            ))
+            .font(.footnote)
+            .foregroundStyle(PaceColor.ink2)
+        }
+    }
+
+    private func noBudgetContent(_ data: TodayOverview) -> some View {
+        VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            VStack(alignment: .leading, spacing: PaceSpace.inner) {
+                header(data)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Copy.Home.remainingLabel)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(PaceColor.ink2)
+                    // 没设预算时不是「0」，也不是占位条：和金额同一档字体的 em dash，ink3。
+                    // 用默认字面而不是 rounded——rounded 的破折号两端是圆头，44pt heavy 下整颗像一根灰胶囊，
+                    // 会被读成「正在加载」的占位条。
+                    Text("—")
+                        .font(.system(size: 44, weight: .heavy))
+                        .foregroundStyle(PaceColor.ink3)
+                        .lineLimit(1)
+                        .accessibilityHidden(true)
+                }
+
+                Text(Copy.Home.noBudgetHint)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                (data.overspent ? Text("今日超支").font(.system(.headline, design: .rounded)) : Text("今日剩余").font(.system(.headline, design: .rounded)))
-                    .foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(data.overspent ? "超支 " : "")
-                        .font(.system(.headline, design: .rounded))
-                        .foregroundStyle(data.overspent ? PaceGradients.danger : PaceGradients.accent)
-                    Text(store.format(abs(data.remainingMinor)))
-                        .font(.system(size: 54, weight: .heavy, design: .rounded))
-                        .foregroundStyle(data.overspent ? AnyShapeStyle(PaceGradients.danger) : AnyShapeStyle(PaceGradients.accent))
-                }
-                // 预算用量
-                if data.budgetMinor > 0 {
-                    let used = min(Double(max(data.netSpentMinor, 0)) / Double(data.budgetMinor), 1.0)
-                    GlassProgress(ratio: data.overspent ? 1 : used, danger: data.overspent)
-                    HStack {
-                        Text("预算 \(store.format(data.budgetMinor))")
-                        Spacer()
-                        Text("已花 \(store.format(data.netSpentMinor))")
-                    }
-                    .font(.system(.footnote, design: .rounded))
-                    .foregroundStyle(.secondary)
-                }
-                Text("今日剩余 = 预算 − 已花（计入预算的支出 − 退款）")
-                    .font(.system(.caption2, design: .rounded))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(PaceColor.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("\(Copy.Home.statusNoBudget)，\(Copy.Home.noBudgetHint)"))
+
+            Button {
+                state.tab = .settings
+            } label: {
+                Text("设置预算")
+            }
+            .buttonStyle(PrimaryButtonStyle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: 30, padding: 22)
     }
 
-    // MARK: - 今日账单玻璃卡
-
-    private func todayCard(_ data: TodayOverview) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label("今日账单", systemImage: "list.bullet.rectangle")
-                    .font(.system(.headline, design: .rounded))
-                Spacer()
-                Text("\(data.transactions.count) 笔")
-                    .font(.system(.footnote, design: .rounded).weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.bottom, 4)
-
-            if data.transactions.isEmpty {
-                HStack {
-                    Image(systemName: "leaf")
-                        .font(.system(size: 30))
-                        .foregroundStyle(PaceGradients.accent.opacity(0.6))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("今天还没有账单")
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        Text("飞行模式也能完整记账")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(.vertical, 12)
-            } else {
-                ForEach(Array(data.transactions), id: \.id) { txn in
-                    glassTxnRow(txn)
-                    if txn.id != data.transactions.last?.id {
-                        Rectangle()
-                            .fill(.white.opacity(0.18))
-                            .frame(height: 1)
-                            .padding(.leading, 44)
-                    }
-                }
-            }
+    private func header(_ data: TodayOverview) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(dateLine(data.localDate))
+                .font(.footnote)
+                .foregroundStyle(PaceColor.ink2)
+            Spacer(minLength: 8)
+            statusPill(data)
         }
-        .glassCard(cornerRadius: 26, padding: 18)
-    }
-
-    private func glassTxnRow(_ txn: LedgerTransaction) -> some View {
-        Button {
-            editingTxnId = txn.id
-        } label: {
-            HStack(spacing: 12) {
-                categoryIcon(txn)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(txn.note.isEmpty ? txn.category : txn.note)
-                        .font(.system(.subheadline, design: .rounded).weight(.medium))
-                    Text(rowSubtitle(txn))
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text(amountLabel(txn))
-                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(txn.type == TxnTypes.refund ? AnyShapeStyle(PaceGradients.accent) : AnyShapeStyle(.primary))
-            }
-            .padding(.vertical, 10)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func rowSubtitle(_ txn: LedgerTransaction) -> String {
-        var parts = [txn.category]
-        if txn.type == TxnTypes.expense && !txn.countInBudget {
-            parts.append("不计入预算")
-        }
-        return parts.joined(separator: " · ")
     }
 
     @ViewBuilder
-    private func categoryIcon(_ txn: LedgerTransaction) -> some View {
-        let symbol = symbolFor(txn)
-        ZStack {
-            Circle()
-                .fill(.white.opacity(0.35))
-                .frame(width: 34, height: 34)
-            Image(systemName: symbol.name)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(symbol.danger ? PaceGradients.danger : PaceGradients.accent)
+    private func statusPill(_ data: TodayOverview) -> some View {
+        if !data.hasBudget {
+            StatusPill(text: Copy.Home.statusNoBudget, kind: .noBudget)
+        } else if data.overspent {
+            StatusPill(text: Copy.Home.statusOverspent, kind: .overspent)
+        } else {
+            StatusPill(text: Copy.Home.statusWithinBudget, kind: .withinBudget)
         }
     }
 
-    private func symbolFor(_ txn: LedgerTransaction) -> (name: String, danger: Bool) {
+    private func heroAmount(_ data: TodayOverview) -> some View {
+        Text(LedgerStore.shared.format(abs(data.remainingMinor)))
+            .font(.system(size: heroSize, weight: .heavy, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(PaceColor.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .contentTransition(reduceMotion ? .identity : .numericText())
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.35), value: data.remainingMinor)
+    }
+
+    private func barRatio(_ data: TodayOverview) -> Double {
+        guard data.budgetMinor > 0 else { return 0 }
+        let used = Double(max(data.netSpentMinor, 0)) / Double(data.budgetMinor)
+        return min(max(used, 0), 1)
+    }
+
+    private func usedPercent(_ data: TodayOverview) -> Int {
+        guard data.budgetMinor > 0 else { return 0 }
+        let used = Double(max(data.netSpentMinor, 0)) / Double(data.budgetMinor) * 100
+        return max(0, Int(used.rounded()))
+    }
+
+    // MARK: - 今日账单卡
+
+    private func todayCard(_ data: TodayOverview) -> some View {
+        VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(Copy.Home.todayBillsTitle)
+                    .font(.headline)
+                    .foregroundStyle(PaceColor.ink)
+                Spacer(minLength: 8)
+                // 空卡里已经有「还没有账单」，0 笔时不再挂一个 0：计数只在有数时出现。
+                if !data.transactions.isEmpty {
+                    Text("\(data.transactions.count) 笔")
+                        .font(.footnote)
+                        .foregroundStyle(PaceColor.ink2)
+                        .monospacedDigit()
+                }
+            }
+
+            if data.transactions.isEmpty {
+                emptyToday
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(data.transactions), id: \.id) { txn in
+                        txnRow(txn)
+                        if txn.id != data.transactions.last?.id {
+                            Rectangle()
+                                .fill(PaceColor.line)
+                                .frame(height: 1)
+                                .padding(.leading, 46)
+                        }
+                    }
+                }
+            }
+        }
+        .paceCard(radius: PaceRadius.card)
+    }
+
+    private var emptyToday: some View {
+        VStack(spacing: 8) {
+            Text("还没有账单")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(PaceColor.ink)
+            Text(ai.key.isEmpty ? Copy.Home.emptySubtitleNoKey : Copy.Home.emptySubtitleWithKey)
+                .font(.footnote)
+                .foregroundStyle(PaceColor.ink2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func txnRow(_ txn: LedgerTransaction) -> some View {
+        HStack(spacing: PaceSpace.inner) {
+            ZStack {
+                Circle()
+                    .fill(PaceColor.softFill)
+                    .frame(width: 34, height: 34)
+                Image(systemName: iconName(for: txn))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(PaceColor.ink)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rowTitle(txn))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(PaceColor.ink)
+                    .lineLimit(1)
+                // 没备注时标题已经是分类名，副标题只写时间（带账户就加账户）。
+                Text(homeSubtitle(txn))
+                    .font(.footnote)
+                    .foregroundStyle(PaceColor.ink2)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(amountLabel(txn))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(amountColor(txn))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(.vertical, 8)
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(rowAccessibilityLabel(txn)))
+    }
+
+    private func rowTitle(_ txn: LedgerTransaction) -> String {
+        txn.note.isEmpty ? txn.category : txn.note
+    }
+
+    private func amountColor(_ txn: LedgerTransaction) -> Color {
         switch txn.type {
-        case TxnTypes.income: return ("arrow.down.circle.fill", false)
-        case TxnTypes.refund: return ("arrow.uturn.left.circle.fill", false)
-        case TxnTypes.transfer: return ("arrow.left.arrow.right.circle.fill", false)
-        default: return (categorySymbol(txn.category), false)
+        case TxnTypes.income, TxnTypes.refund:
+            return PaceColor.income
+        default:
+            return PaceColor.ink
         }
     }
 
-    private func categorySymbol(_ category: String) -> String {
+    private func timeString(_ txn: LedgerTransaction) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.timeZone = TimeZone(identifier: txn.timezoneId) ?? .current
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: Date(timeIntervalSince1970: Double(txn.occurredAtEpochMillis) / 1000))
+    }
+
+    private func iconName(for txn: LedgerTransaction) -> String {
+        switch txn.type {
+        case TxnTypes.income:
+            return "arrow.down.left"
+        case TxnTypes.refund:
+            return "arrow.uturn.backward"
+        case TxnTypes.transfer:
+            return "arrow.left.arrow.right"
+        default:
+            return categoryIconName(txn.category)
+        }
+    }
+
+    /// 标题是分类名时，副标题不再重复分类。
+    private func homeSubtitle(_ txn: LedgerTransaction) -> String {
+        var parts: [String] = []
+        if !txn.note.isEmpty { parts.append(txn.category) }
+        parts.append(timeString(txn))
+        if txn.note.isEmpty, !txn.account.isEmpty { parts.append(txn.account) }
+        return parts.joined(separator: " · ")
+    }
+
+    private func categoryIconName(_ category: String) -> String {
         switch category {
         case "餐饮": return "fork.knife"
         case "交通": return "car.fill"
@@ -234,29 +366,59 @@ struct HomeView: View {
         case "人情社交": return "gift.fill"
         case "工资": return "banknote.fill"
         case "理财": return "chart.line.uptrend.xyaxis"
-        case "转账": return "arrow.left.arrow.right"
         default: return "circle.fill"
         }
     }
-}
 
-/// 小玻璃徽章
-struct GlassPill: View {
-    let text: String
-    let systemImage: String
-    var danger = false
+    // MARK: - 文案与无障碍
 
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .font(.system(size: 10, weight: .bold))
-            Text(text)
-                .font(.system(.caption2, design: .rounded).weight(.bold))
+    private func dateLine(_ iso: String) -> String {
+        let parts = iso.split(separator: "-")
+        guard parts.count == 3,
+              let month = Int(parts[1]),
+              let day = Int(parts[2]) else { return iso }
+        return "今天 · \(month)月\(day)日"
+    }
+
+    /// 去掉 `format` 前缀的货币符号（Copy 的预算行自己带 ¥）。
+    private func plainAmount(_ minor: Int64) -> String {
+        let text = LedgerStore.shared.format(minor)
+        if let start = text.firstIndex(where: { $0.isNumber || $0 == "-" }) {
+            return String(text[start...])
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Capsule(style: .continuous).fill(.ultraThinMaterial))
-        .overlay(Capsule(style: .continuous).strokeBorder(.white.opacity(0.4), lineWidth: 1))
-        .foregroundStyle(danger ? Color(red: 0.85, green: 0.30, blue: 0.32) : PaceGradients.tint)
+        return text
+    }
+
+    private func budgetAccessibilityLabel(_ data: TodayOverview) -> String {
+        let remaining = data.overspent
+            ? "\(Copy.Home.remainingOverspentLabel) \(spokenAmount(abs(data.remainingMinor)))"
+            : "\(Copy.Home.remainingLabel) \(spokenAmount(max(data.remainingMinor, 0)))"
+        return "\(remaining)，预算 \(spokenAmount(data.budgetMinor))，已花 \(spokenAmount(max(data.netSpentMinor, 0)))"
+    }
+
+    private func rowAccessibilityLabel(_ txn: LedgerTransaction) -> String {
+        let title = rowTitle(txn)
+        let kind = typeLabel(txn.type)
+        let amount = spokenAmount(txn.amountMinor)
+        if title == txn.category {
+            return "\(title)，\(kind) \(amount)"
+        }
+        return "\(title)，\(txn.category)，\(kind) \(amount)"
+    }
+
+    private func typeLabel(_ type: String) -> String {
+        TxnTypes.all.first(where: { $0.0 == type })?.1 ?? type
+    }
+
+    /// 规范 §11 的读法：128 元 5 角。
+    private func spokenAmount(_ minor: Int64) -> String {
+        let value = abs(minor)
+        let yuan = value / 100
+        let cents = value % 100
+        if cents == 0 { return "\(yuan) 元" }
+        let jiao = cents / 10
+        let fen = cents % 10
+        if fen == 0 { return "\(yuan) 元 \(jiao) 角" }
+        return "\(yuan) 元 \(jiao) 角 \(fen) 分"
     }
 }
