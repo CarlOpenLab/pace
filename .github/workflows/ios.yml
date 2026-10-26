@@ -101,36 +101,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 写死的字号与 minimumScaleFactor 必须为 0 处
-        run: |
-          python3 - <<'PY'
-          import pathlib, re, sys
-
-          # Colo 第十五版 §5 的两条：
-          # 一，`.font(.system(size: <数字字面量>` 一处都不许有——字号要跟着系统走。
-          #    白名单写法是 `.font(.system(size: 某个 ScaledMetric 变量, …))`，那不是字面量。
-          # 二，`minimumScaleFactor` 一处都不许有——它把用户选的字号压回去。
-          #
-          # 注释里提到这两种写法是允许的（代码里正在解释为什么禁它们），所以逐行只看代码部分。
-          hardcoded = re.compile(r"\.font\(\.system\(size:\s*[0-9]")
-          shrink = re.compile(r"minimumScaleFactor")
-
-          bad = []
-          for path in sorted(pathlib.Path("iosApp").rglob("*.swift")):
-              for no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                  code = line.split("//", 1)[0]
-                  if not code.strip():
-                      continue
-                  if hardcoded.search(code):
-                      bad.append((path, no, "写死的字号", line.strip()))
-                  if shrink.search(code):
-                      bad.append((path, no, "minimumScaleFactor", line.strip()))
-
-          for path, no, why, text in bad:
-              print(f"::error file={path},line={no}::{why}：{text}")
-
-          if bad:
-              print(f"\n共 {len(bad)} 处。字号请走 PaceType 的角色或 paceFont(base, …)；"
-                    "放不下就改布局，不许缩字。")
-              sys.exit(1)
-          print("写死的字号 0 处，minimumScaleFactor 0 处。")
-          PY
+        # 四条正则、九种写法、外加一次自检：脚本先拿一份故意违规的样本跑一遍，
+        # 抓不到就直接红——一个永远说干净的检查比没有检查更坏。
+        run: python3 scripts/check-type-scale.py
