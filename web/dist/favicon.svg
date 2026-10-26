@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pace">
+  <rect width="64" height="64" rx="14" fill="#0C0C0D"/>
+  <text x="32" y="44" font-family="-apple-system, 'SF Pro Rounded', system-ui, sans-serif"
+        font-size="34" font-weight="700" fill="#F5F5F7" text-anchor="middle">P</text>
+</svg>
