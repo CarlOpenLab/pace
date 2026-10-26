@@ -144,7 +144,7 @@
      只一圈边不叠描边；环/投影分层参考 liquid-glass.maxrovensky.com */
   .tabbar{
     position:absolute; left:14px; right:14px; bottom:14px; height:56px;
-    display:grid; grid-template-columns:repeat(4,1fr); align-items:center;
+    display:grid; grid-template-columns:repeat(4,1fr); align-items:stretch;
     border-radius:28px; padding:0 6px;
     background:linear-gradient(160deg, rgba(255,255,255,.18), rgba(255,255,255,.10));
     -webkit-backdrop-filter:blur(20px) saturate(140%); backdrop-filter:blur(20px) saturate(140%);
@@ -156,8 +156,14 @@
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.15), inset 0 1px 3px rgba(255,255,255,.65),
       0 12px 32px rgba(0,0,0,.14), 0 1px 4px rgba(0,0,0,.08);
   }
-  .tab{display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; font-weight:500; color:var(--ink2); background:none; border:none; padding:0; cursor:pointer; font-family:inherit}
-  .tab.on{color:var(--ink)}
+  .tab-ind{
+    position:absolute; top:4px; bottom:4px; left:6px;
+    width:calc((100% - 12px) / 4);
+    border-radius:24px; background:var(--accent);
+    transform:translateX(0); transition:transform .18s ease-out; z-index:0;
+  }
+  .tab{position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; font-weight:500; color:var(--ink2); background:none; border:none; padding:0; cursor:pointer; font-family:inherit; transition:color .18s ease-out}
+  .tab.on{color:var(--onAccent)}
   .tab svg{display:block}
   .fab{
     position:absolute; right:20px; bottom:82px; height:44px; padding:0 18px; border-radius:22px; border:none;
@@ -529,6 +535,7 @@
       </div>
 
       <div class="tabbar" role="tablist" aria-label="App sections">
+        <span class="tab-ind" aria-hidden="true"></span>
         <button class="tab on" role="tab" aria-selected="true" data-page="today">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8.6 10 3l7 5.6V16a1 1 0 0 1-1 1h-4v-4.6H8V17H4a1 1 0 0 1-1-1V8.6Z"/></svg>
           Today
@@ -816,10 +823,13 @@
     }
 
     var tabs = document.querySelectorAll('.tab');
+    var tabInd = document.querySelector('.tab-ind');
     tabs.forEach(function(t){
       t.addEventListener('click', function(){
+        var list = Array.prototype.slice.call(tabs);
         tabs.forEach(function(x){ x.classList.remove('on'); x.setAttribute('aria-selected', 'false'); });
         t.classList.add('on'); t.setAttribute('aria-selected', 'true');
+        tabInd.style.transform = 'translateX(' + (list.indexOf(t) * 100) + '%)';
         document.querySelectorAll('.app-page').forEach(function(p){ p.classList.toggle('on', p.dataset.page === t.dataset.page); });
         appBody.scrollTop = 0;
         document.getElementById('fab').classList.toggle('gone', t.dataset.page === 'stats' || t.dataset.page === 'settings');
