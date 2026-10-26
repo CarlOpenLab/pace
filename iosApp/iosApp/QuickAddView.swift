@@ -16,17 +16,29 @@ enum AddFillMode: Hashable {
 struct AddModeSwitcher: View {
     @Binding var mode: AddFillMode
 
+    // 三个高度跟着 label 的字长走，封顶 1.6 倍（和 Colo 的间距规则同一条）。
+    // 默认字号下就是原来的 44 / 34 / 28——接字号不是顺手调版式。
+    @ScaledMetric(relativeTo: .subheadline) private var tapHeight: CGFloat = 44
+    @ScaledMetric(relativeTo: .subheadline) private var trackHeight: CGFloat = 34
+    @ScaledMetric(relativeTo: .subheadline) private var pillHeight: CGFloat = 28
+
+    private var tap: CGFloat { min(tapHeight, 44 * 1.6) }
+    private var track: CGFloat { min(trackHeight, 34 * 1.6) }
+    private var pill: CGFloat { min(pillHeight, 28 * 1.6) }
+
     var body: some View {
         HStack(spacing: 0) {
             segment(.sentence, title: Copy.AddMode.sentence)
             segment(.manual, title: Copy.AddMode.manual)
         }
-        .padding(3)
+        .padding(.horizontal, 3)
+        .frame(height: tap)
         // 胶囊高度跟着字长：写死 34 之后，字一放大两段就挤成一团。
-        .background {
-            Capsule(style: .continuous).fill(PaceColor.card2)
+        .background(alignment: .center) {
+            Capsule(style: .continuous)
+                .fill(PaceColor.card2)
+                .frame(height: track)
         }
-        .frame(minHeight: 44)
     }
 
     private func segment(_ value: AddFillMode, title: String) -> some View {
@@ -38,14 +50,15 @@ struct AddModeSwitcher: View {
                 .foregroundStyle(mode == value ? PaceColor.onAccent : PaceColor.ink2)
                 .lineLimit(1)
                 // 不再压字号：minimumScaleFactor(0.85) 就是把用户选的字按回去。
-                .pacePadding(8, .vertical)
                 .frame(maxWidth: .infinity)
-                .background {
+                .frame(height: tap)
+                .background(alignment: .center) {
                     if mode == value {
-                        Capsule(style: .continuous).fill(PaceColor.accent)
+                        Capsule(style: .continuous)
+                            .fill(PaceColor.accent)
+                            .frame(height: pill)
                     }
                 }
-                .frame(minHeight: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

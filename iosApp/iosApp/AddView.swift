@@ -222,6 +222,9 @@ struct AddView: View {
                     .font(.body)
                     .foregroundStyle(PaceColor.ink2)
                     .fixedSize(horizontal: false, vertical: true)
+                    // 和输入框同一个最小高度，单行时两者都在 44 里居中——
+                    // 默认字号下占位的位置和改之前一像素不差。
+                    .frame(minHeight: 44)
                     .allowsHitTesting(false)
             }
 
@@ -238,6 +241,7 @@ struct AddView: View {
             .submitLabel(submitKey)
             .onSubmit { Task { await parse() } }
             .disabled(busy || sentenceDraft != nil)
+            .frame(minHeight: 44)
         }
         // 卡高 = 字高 + 上下内距，不写死：写死 44 之后字一放大就切在框里。
         .frame(maxWidth: .infinity, alignment: .leading)
