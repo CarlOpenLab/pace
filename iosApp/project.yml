@@ -2,7 +2,7 @@ name: iosApp
 options:
   bundleIdPrefix: com.pace
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 configs:
   Debug: debug
