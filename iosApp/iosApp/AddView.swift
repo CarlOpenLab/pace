@@ -605,6 +605,11 @@ struct AddView: View {
         case .certificate:
             return FailureCopy(title: Copy.Ai.Fail.Certificate.title, body: Copy.Ai.Fail.Certificate.body,
                                primary: Copy.Ai.Fail.Certificate.primary, secondary: Copy.Ai.Fail.Certificate.secondary)
+        case .server(let code) where (400...499).contains(code):
+            // 4xx 是「它收到了、但这次请求它不收」，多半是模型名不对——让人去改模型，
+            // 不是让他等一等再试。实测那台服务器 400 的原话是 Model is unavailable。
+            return FailureCopy(title: Copy.Ai.Fail.ModelRejected.title, body: Copy.Ai.Fail.ModelRejected.body,
+                               primary: Copy.Ai.Fail.ModelRejected.primary, secondary: Copy.Ai.Fail.ModelRejected.secondary)
         case .server:
             return FailureCopy(title: Copy.Ai.Fail.Server.title, body: Copy.Ai.Fail.Server.body,
                                primary: Copy.Ai.Fail.Server.primary, secondary: Copy.Ai.Fail.Server.secondary)

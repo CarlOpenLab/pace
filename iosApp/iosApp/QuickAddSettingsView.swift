@@ -428,6 +428,9 @@ struct QuickAddSettingsView: View {
         guard !fetchingModels else { return }
         fetchingModels = true
         modelsNotice = nil
+        // 一次失败只说一次：用户刚改的是地址，说的就该是读列表这件事，
+        // 上一次「测试连接」的红字留着会变成同一个问题报两遍。
+        testResult = nil
         let result = await AiModelList.fetch(endpoint: ai.endpoint, key: ai.key)
         switch result {
         case .success(let list):
@@ -494,6 +497,9 @@ struct QuickAddSettingsView: View {
         guard !testing else { return }
         testing = true
         testResult = nil
+        // 同理：刚按的是「测试连接」，就只说这一件。读列表那条清掉，
+        // 不然同一句话在按钮上下各来一遍，人会以为是两个毛病。
+        modelsNotice = nil
         let config = AiConfig(endpoint: ai.endpoint, model: ai.model, key: ai.key)
         let result = await AiDraftClient.testConnection(config: config)
         testResult = result
@@ -511,6 +517,8 @@ struct QuickAddSettingsView: View {
                 return (Copy.Ai.Test.badAddress, "exclamationmark.triangle.fill", PaceColor.danger)
             case .certificate:
                 return (Copy.Ai.Test.certificate, "lock.trianglebadge.exclamationmark", PaceColor.danger)
+            case .server(let code) where (400...499).contains(code):
+                return (Copy.Ai.Test.modelRejected, "exclamationmark.triangle.fill", PaceColor.danger)
             case .server:
                 return (Copy.Ai.Test.server, "exclamationmark.triangle.fill", PaceColor.danger)
             case .unreachable:

@@ -128,9 +128,11 @@ struct AiDraftClient {
 
     static func testConnection(config: AiConfig) async -> TestResult {
         guard config.isComplete else { return .incomplete }
+        // 16 不是随手写：有的服务不收 max_tokens=1（会回 400），把「地址和 Key 都对、
+        // 只是这个数太小」报成「服务器出问题了」。一次 ping 花不了几分钱，别在这上面省。
         let body: [String: Any] = [
             "model": config.model,
-            "max_tokens": 1,
+            "max_tokens": 16,
             "messages": [["role": "user", "content": "ping"]]
         ]
         do {
@@ -204,7 +206,9 @@ struct AiDraftClient {
         case 402, 429: throw AiFailure.quota
         default:
             // 状态码只进日志，不上屏（界面上是「服务器那边出问题了」）。
-            NSLog("[Pace] chat endpoint answered %d", http.statusCode)
+            // 正文也留一截：400 这种「地址和 Key 都对、它就是不收」的，只有它自己的话能说明为什么。
+            NSLog("[Pace] chat endpoint answered %d %@", http.statusCode,
+                  String(decoding: data.prefix(400), as: UTF8.self))
             throw AiFailure.server(http.statusCode)
         }
     }

@@ -14,6 +14,14 @@ enum Copy {
 
     enum Ai {
 
+        /// 同一件事只写一次：地址打不开、证书不认这两句在「读模型列表」「测试连接」「失败卡」
+        /// 三处都要用。三处各写一遍就会长出三种措辞——同一个动作两个名字，这一页已经踩过一次。
+        enum Net {
+            static let checkAddress = "看看有没有打错，或者地址结尾是不是少了 /v1。"
+            /// 「先顶着」是 Camo 定的：承认这是临时办法，不是在推荐明文。
+            static let fixHTTP = "换成 http 开头的地址先顶着（明文，同一网络里可能看到 Key），或者把它的证书装到手机上。"
+        }
+
         /// 1.2 输入页（sheet）。
         enum Input {
             static let placeholder = "早饭 12，地铁 4"
@@ -93,8 +101,8 @@ enum Copy {
                     static let noModelList = "这个服务不提供模型列表。手填一个模型名就行，服务商文档里有。"
                     static let unreachable = "连不上这个地址。先看手机有没有网、地址有没有写错。"
                     static let offline = "手机没联网，读不了模型列表。连上网络再试，或者先手填模型名。"
-                    static let badAddress = "这个地址打不开，读不了模型列表。检查有没有打错，或者少了结尾的 /v1。"
-                    static let certificate = "这台服务器的证书手机不认，读不了模型列表。换成 http 开头的地址，或者把它的证书装到手机上。"
+                    static let badAddress = "这个地址打不开，读不了模型列表。" + Net.checkAddress
+                    static let certificate = "这台服务器的证书手机不认，读不了模型列表。" + Net.fixHTTP
                     static let server = "那边出了点问题，模型列表没取回来。过一会儿再读一次，或者先手填模型名。"
                     static let noKey = "先填 Key，这里会列出这个 Key 能用的模型。"
                     static let noAddress = "先填接口地址，再读模型列表。"
@@ -131,9 +139,10 @@ enum Copy {
             static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
             static let keyRejected = "Key 没通过。这个服务没认这把 Key，去服务商后台确认一下。"
             static let offline = "手机没联网。连上网络再试。"
-            static let badAddress = "这个地址打不开，检查有没有打错，或者少了结尾的 /v1。"
-            static let certificate = "这台服务器的证书手机不认。换成 http 开头的地址，或者把它的证书装到手机上。"
+            static let badAddress = "这个地址打不开。" + Net.checkAddress
+            static let certificate = "这台服务器的证书手机不认。" + Net.fixHTTP
             static let server = "地址通了，是它那边出错了。待会儿再试。"
+            static let modelRejected = "地址和 Key 都通了，它说这个模型用不了。换一个模型名再试。"
             static let incomplete = "先把地址和 Key 填上，再把模型选上。"
             static let clearKey = "清空 Key"
             static let clearConfirmTitle = "清空 Key？"
@@ -182,7 +191,7 @@ enum Copy {
             /// 地址打不开：域名解析不到、地址本身写错（-1003 / -1006）。
             enum BadAddress {
                 static let title = "这个地址打不开"
-                static let body = "手机找不到这个地址，多半是有字打错了，或者少了结尾的 /v1。回设置里对着服务商给的那一栏核一遍。账本没有任何变化。"
+                static let body = "这个地址打不开。" + Net.checkAddress + "回设置里对着服务商给的那一栏核一遍。账本没有任何变化。"
                 static let primary = "去设置"
                 static let secondary = toManual
             }
@@ -190,7 +199,7 @@ enum Copy {
             /// 证书不受信任（-1202 / -1200 / -1201）：跟地址和 Key 都无关，是这一台服务器的证书手机不认。
             enum Certificate {
                 static let title = "这台服务器的证书手机不认"
-                static let body = "连接被系统拦下了，因为它给的证书不是手机信任的那一种。把地址换成 http 开头的（你自己填的服务器），或者把它的证书装到手机上。账本没有任何变化。"
+                static let body = "这台服务器的证书手机不认，连接被系统拦下了。" + Net.fixHTTP + "账本没有任何变化。"
                 static let primary = toManual
                 static let secondary = "用本机规则再试"
             }
@@ -201,6 +210,14 @@ enum Copy {
                 static let body = "地址和 Key 都没问题，是它那边没接住这次请求。待会儿再试一次，或者切到手动。账本没有任何变化。"
                 static let primary = toManual
                 static let secondary = "用本机规则再试"
+            }
+
+            /// 它收了这次请求但拒了内容（400/404/422 这些 4xx）：实测最常见的原因是模型名不对。
+            enum ModelRejected {
+                static let title = "这个模型它那边用不了"
+                static let body = "地址和 Key 都通了，是它说这次请求不收——多半是模型名在那家不是这个名字。回设置里从列表里挑一个，或者问服务商要准确的模型名。账本没有任何变化。"
+                static let primary = "去设置"
+                static let secondary = toManual
             }
 
             /// 兜底：发不出去，也分不出是哪一环。
