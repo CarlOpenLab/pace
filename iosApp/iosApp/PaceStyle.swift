@@ -30,8 +30,9 @@ enum PaceColor {
     /// 卡片的边。暗色下卡片 #1A1A1C 对画布 #0C0C0D 只有 1.13:1，用 white 10% 只有 1.67；
     /// 这条是容器的边，抬到 16% = #3F3F40、对画布 1.86——看得见但不抢，比玻璃那圈 1.35 重一点。
     static let cardEdge = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.16)
-    /// 卡片里面的分隔线：暗色下白 10% 压在 card 上只有 1.53:1，几乎看不见，抬到 12%。
-    static let divider = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.12)
+    /// 卡片里面的分隔线。文档写的是白 12%，但白 12% 压在 card #1A1A1C 上量出来是 #353537，
+    /// 不是文档同时给出的目标色 #3D3D40（那条要 15%）。按目标色取，别按百分比猜。
+    static let divider = Color(light: 0x000000, lightAlpha: 0.10, dark: 0x3D3D40, darkAlpha: 1.0)
     static let accent = Color(light: 0x1C1C1E, dark: 0xF2F2F4)
     static let onAccent = Color(light: 0xFFFFFF, dark: 0x0C0C0D)
     static let income = Color(light: 0x107050, dark: 0x4ED4A0)
