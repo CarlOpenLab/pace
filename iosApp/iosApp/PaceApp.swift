@@ -164,6 +164,24 @@ struct RootView: View {
             if args.contains("-uiDrafts") {
                 state.openDrafts(Self.debugDrafts)
             }
+            // 启动参数 `-uiNetProbe <地址>`：从 App 内部真发一次 GET，把结果打到控制台。
+            // 「连不上」到底是服务器的错还是系统的 ATS 拦的，只有从 App 里发一次才分得清。
+            if let i = args.firstIndex(of: "-uiNetProbe"), i + 1 < args.count {
+                let probe = args[i + 1]
+                Task {
+                    guard let url = URL(string: probe) else {
+                        print("NETPROBE bad-url \(probe)")
+                        return
+                    }
+                    do {
+                        let (data, response) = try await URLSession.shared.data(from: url)
+                        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+                        print("NETPROBE ok status=\(code) bytes=\(data.count)")
+                    } catch {
+                        print("NETPROBE fail \(error)")
+                    }
+                }
+            }
         }
         #endif
     }

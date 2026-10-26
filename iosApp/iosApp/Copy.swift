@@ -52,6 +52,8 @@ enum Copy {
                 static let label = "接口地址"
                 static let placeholder = "https://api.deepseek.com/v1"
                 static let note = "按 OpenAI 兼容格式填，地址一般写到 /v1 就行。"
+                /// 填了 http 地址时出现：明文连接是真的会漏 Key，不是吓唬人。
+                static let plainHTTP = "这是 http 明文地址，同一网络里的人可能看到你的 Key；能换成 https 就换。"
             }
 
             /// 3.2 手填模型名。

@@ -183,6 +183,15 @@ struct QuickAddSettingsView: View {
                         .autocorrectionDisabled()
                         .focused($focusedField, equals: .endpoint)
                         .onSubmit { reloadAfterEdit() }
+
+                    // 用户多半填的是自己的服务器，http 也常见。允许连，但不能装没看见：
+                    // 明文地址会把 Key 露在同一条网络里。
+                    if isPlainHTTP {
+                        Text(Copy.Ai.Settings.Endpoint.plainHTTP)
+                            .font(PaceType.caption)
+                            .foregroundStyle(PaceColor.ink2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 
@@ -328,6 +337,13 @@ struct QuickAddSettingsView: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
+    }
+
+    /// 地址是不是明文 http。只在用户真填了东西之后才提示，不然一进页就顶着一条警告。
+    private var isPlainHTTP: Bool {
+        ai.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .hasPrefix("http://")
     }
 
     /// 列表还读不成时，直接说现在缺哪一样。

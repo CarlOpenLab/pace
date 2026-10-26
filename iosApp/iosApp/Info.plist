@@ -22,6 +22,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- 用户的模型地址是自己填的，可能是内网或只有 http 的自建服务。iOS 默认拦明文 http，
+	     而拦下来只能报「连不上」，用户无从得知是系统拒绝的。允许明文，但界面上如实提示风险。
+	     上架时审核会问这条，答案是「用户自填的服务器地址」。 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
