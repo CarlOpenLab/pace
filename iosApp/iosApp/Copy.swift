@@ -92,7 +92,7 @@ enum Copy {
                 static let staleList = "这是上次读回来的列表，可能不是最新的。"
 
                 static func stale(_ model: String) -> String {
-                    "「\(model)」这次没在列表里。可能换过服务商，或者它已经下线了。还用它也行。"
+                    "「\(model)」这次没在列表里。还用它也行，或者换一个。"
                 }
 
                 /// 四种失败态放各自站得住的话；「不列模型」是这家就这样，不当错误。
@@ -142,7 +142,7 @@ enum Copy {
             static let badAddress = "这个地址打不开。" + Net.checkAddress
             static let certificate = "这台服务器的证书手机不认。" + Net.fixHTTP
             static let server = "地址通了，是它那边出错了。待会儿再试。"
-            static let modelRejected = "地址和 Key 都通了，它说这个模型用不了。换一个模型名再试。"
+            static let modelRejected = "地址和 Key 都通了，你填的服务说这个模型用不了。换一个模型再试。"
             static let incomplete = "先把地址和 Key 填上，再把模型选上。"
             static let clearKey = "清空 Key"
             static let clearConfirmTitle = "清空 Key？"
@@ -214,8 +214,8 @@ enum Copy {
 
             /// 它收了这次请求但拒了内容（400/404/422 这些 4xx）：实测最常见的原因是模型名不对。
             enum ModelRejected {
-                static let title = "这个模型它那边用不了"
-                static let body = "地址和 Key 都通了，是它说这次请求不收——多半是模型名在那家不是这个名字。回设置里从列表里挑一个，或者问服务商要准确的模型名。账本没有任何变化。"
+                static let title = "这个模型现在用不了"
+                static let body = "地址和 Key 都通了，你填的服务说这次请求给不出这个模型。回设置里从列表里挑一个，或者问给你这个地址的人。账本没有任何变化。"
                 static let primary = "去设置"
                 static let secondary = toManual
             }

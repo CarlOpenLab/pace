@@ -172,7 +172,11 @@ struct QuickAddSettingsView: View {
                 field(
                     label: Copy.Ai.Settings.Endpoint.label,
                     note: Copy.Ai.Settings.Endpoint.note,
-                    stacked: true
+                    stacked: true,
+                    // 用户多半填的是自己的服务器，http 也常见。允许连，但不能装没看见：
+                    // 明文地址会把 Key 露在同一条网络里。说的是代价，不是错误，所以不红。
+                    footnote: isPlainHTTP ? Copy.Ai.Settings.Endpoint.plainHTTP : nil,
+                    footnoteIcon: isPlainHTTP ? "exclamationmark.triangle" : nil
                 ) {
                     // 地址自己会换行：单行输入框在最大档把一串地址截成「http://127.0.0.1:…」，
                     // 省略号正好切在最该核对的那一段上。
@@ -183,18 +187,6 @@ struct QuickAddSettingsView: View {
                         .autocorrectionDisabled()
                         .focused($focusedField, equals: .endpoint)
                         .onSubmit { reloadAfterEdit() }
-
-                    // 用户多半填的是自己的服务器，http 也常见。允许连，但不能装没看见：
-                    // 明文地址会把 Key 露在同一条网络里。
-                    if isPlainHTTP {
-                        Text(Copy.Ai.Settings.Endpoint.plainHTTP)
-                            .font(PaceType.secondary)
-                            .foregroundStyle(PaceColor.ink2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            // 行间 4 + 补 4 = 距输入框 8（Colo 2.3.2）。不用红色：
-                            // 明文是「这个选择有代价」，不是失败；红色留给真失败。
-                            .padding(.top, 4)
-                    }
                 }
             }
 
@@ -292,6 +284,8 @@ struct QuickAddSettingsView: View {
         label: String,
         note: String,
         stacked: Bool = false,
+        footnote: String? = nil,
+        footnoteIcon: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -316,6 +310,25 @@ struct QuickAddSettingsView: View {
                 .paceFont(11, .regular, relativeTo: .caption2)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let footnote {
+                // 先怎么填、再讲代价：两条都降成 ink2 之后，位置和「形」是唯一能分开它们的东西。
+                // 图标对齐第一行文字（firstTextBaseline），不压在整段中间——最大档会折成三行，
+                // 居中的图标就漂在两行之间了（勾选块那晚同样的错）。
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if let footnoteIcon {
+                        Image(systemName: footnoteIcon)
+                            .paceFont(11, .regular, relativeTo: .caption2)
+                            // 形状是警告的形状，颜色永远是 ink2：这是「这个选择有代价」，不是失败。
+                            .foregroundStyle(PaceColor.ink2)
+                    }
+                    Text(footnote)
+                        .paceFont(11, .regular, relativeTo: .caption2)
+                        .foregroundStyle(PaceColor.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 4)
+            }
         }
     }
 
@@ -375,6 +388,12 @@ struct QuickAddSettingsView: View {
                     Text(fetchLabel)
                         .paceFont(13, .semibold, relativeTo: .footnote)
                         .foregroundStyle(PaceColor.ink)
+                    if !fetchingModels {
+                        // 这行是动作，不是区块标题：给个形，别让人以为它是分组的头。
+                        Image(systemName: "arrow.clockwise")
+                            .paceFont(12, .semibold, relativeTo: .footnote)
+                            .foregroundStyle(PaceColor.ink)
+                    }
                 }
             }
             .disabled(fetchingModels)
@@ -424,13 +443,15 @@ struct QuickAddSettingsView: View {
         Task { await loadModels() }
     }
 
-    private func loadModels() async {
+    /// keepsTestResult：从「测试连接」里顺手刷新列表时为 true。
+    /// 那种情况下刚按的是测试，屏上那行结论要留着，不能被读列表顺手清掉。
+    private func loadModels(keepsTestResult: Bool = false) async {
         guard !fetchingModels else { return }
         fetchingModels = true
         modelsNotice = nil
         // 一次失败只说一次：用户刚改的是地址，说的就该是读列表这件事，
         // 上一次「测试连接」的红字留着会变成同一个问题报两遍。
-        testResult = nil
+        if !keepsTestResult { testResult = nil }
         let result = await AiModelList.fetch(endpoint: ai.endpoint, key: ai.key)
         switch result {
         case .success(let list):
@@ -503,6 +524,15 @@ struct QuickAddSettingsView: View {
         let config = AiConfig(endpoint: ai.endpoint, model: ai.model, key: ai.key)
         let result = await AiDraftClient.testConnection(config: config)
         testResult = result
+        // 测试通了就说明地址和 Key 都对了，模型那行没有理由还停在「没读到、你手填吧」——
+        // 用户是照屏幕做决定的，屏幕说这个模型不存在，他就会去手填一个可能不存在的名字。
+        // 4xx 同理：它收到了请求，只是这个模型给不出，说明列表读得到。
+        switch result {
+        case .ok, .server(400...499):
+            if models.isEmpty { await loadModels(keepsTestResult: true) }
+        default:
+            break
+        }
         testing = false
     }
 
