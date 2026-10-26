@@ -336,10 +336,16 @@ struct DraftReviewView: View {
                 .foregroundStyle(PaceColor.ink)
                 .lineLimit(1)
         } else {
+            // 缺金额写一个词，不套任何胶囊容器（Camo：套上就是按钮，人会去点）。
+            // 右边缘和金额同一条线（Colo：锚点是右边，齐尾不齐头）。
             Text(Copy.Draft.emptyAmount)
                 .paceFont(16, .semibold, design: .rounded)
-                .foregroundStyle(PaceColor.ink3)
+                .foregroundStyle(PaceColor.ink2)
+                .multilineTextAlignment(.trailing)
                 .fixedSize(horizontal: false, vertical: true)
+                // 并进金额那一格读「金额，还没填」，不单独成元素。
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("\(Copy.Draft.Field.amount)，\(Copy.Draft.emptyAmount)"))
         }
     }
 
