@@ -266,7 +266,8 @@ struct HomeView: View {
             Text("还没有账单")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(PaceColor.ink)
-            Text(ai.key.isEmpty ? Copy.Home.emptySubtitleNoKey : Copy.Home.emptySubtitleWithKey)
+            // 和主按钮、键盘那颗键同一个判据：只有真走模型的人读到的才是「说一句话就行」。
+            Text(ai.usesRemoteModel ? Copy.Home.emptySubtitleWithKey : Copy.Home.emptySubtitleNoKey)
                 .font(.footnote)
                 .foregroundStyle(PaceColor.ink2)
                 .multilineTextAlignment(.center)

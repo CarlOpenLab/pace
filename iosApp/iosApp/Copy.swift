@@ -347,8 +347,10 @@ enum Copy {
         static let budgetSpentHint = "不算进预算的那几笔，和退款，都不在这里扣。"
         static let todayBillsTitle = "今天"
         static let emptyTitle = "还没有账单"
+        /// 走本机规则时（没配好模型、或开关关着）说「打一句话」。
         static let emptySubtitleNoKey = "点下面的「记一笔」，或者打一句话。"
-        static let emptySubtitleWithKey = "点下面的「记一笔」，或者打一句话。"
+        /// 真正走模型时只说这一种：说一句话就行（Camo 定的词）。
+        static let emptySubtitleWithKey = "点下面的「记一笔」，说一句话就行。"
         static let loading = "加载中…"
     }
 

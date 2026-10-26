@@ -104,7 +104,9 @@ struct QuickAddView: View {
             // 单行：一句话记账本来就说一句话，也保证下面的草稿卡不被输入框顶出屏幕。
             TextField(Copy.Ai.Input.placeholder, text: $text)
                 .font(.system(size: 17))
-                .foregroundStyle(busy || isConfirming ? PaceColor.ink2 : PaceColor.ink)
+                // 只在「正在整理」那一段掉成 ink2：草稿卡一出来，这句话就是
+                // 正在确认的东西，得和卡片里的值一样深。
+                .foregroundStyle(busy ? PaceColor.ink2 : PaceColor.ink)
                 .tint(PaceColor.ai)
                 .focused($inputFocused)
                 .submitLabel(.send)
@@ -172,9 +174,11 @@ struct QuickAddView: View {
         VStack(spacing: 12) {
             if inlineSaved {
                 HStack(spacing: 6) {
+                    // 勾说的是「账已经记上了」，不是「AI 干了点什么」：不上色，
+                    // 只有失败才该是这个页面上有颜色的东西。
                     Image(systemName: "checkmark")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(PaceColor.ai)
+                        .foregroundStyle(PaceColor.ink)
                     Text(Copy.Ai.Input.confirmed)
                         .font(.system(size: 15))
                         .foregroundStyle(PaceColor.ink)
