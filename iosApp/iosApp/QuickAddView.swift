@@ -82,7 +82,7 @@ struct QuickAddView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(PaceColor.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .paceCardFill(20)
     }
 
     private var exampleRow: some View {
@@ -153,7 +153,7 @@ struct QuickAddView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(PaceColor.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .paceCardFill(18)
     }
 
     private struct FailureCopy {

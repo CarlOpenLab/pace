@@ -174,7 +174,7 @@ struct DraftReviewView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(PaceColor.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .paceCardFill(18)
     }
 
     private func metaLine(_ item: DraftItem) -> String {

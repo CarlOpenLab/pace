@@ -101,7 +101,7 @@ struct QuickAddSettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(PaceColor.card, in: RoundedRectangle(cornerRadius: PaceRadius.card, style: .continuous))
+        .paceCardFill(PaceRadius.card)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(Copy.Ai.Settings.toggleTitle)，\(ai.enabled ? Copy.Ai.Settings.subtitleOn : Copy.Ai.Settings.subtitleOff)")
     }
@@ -159,7 +159,7 @@ struct QuickAddSettingsView: View {
                 .padding(.top, 2)
         }
         .padding(16)
-        .background(PaceColor.card, in: RoundedRectangle(cornerRadius: PaceRadius.card, style: .continuous))
+        .paceCardFill(PaceRadius.card)
     }
 
     /// stacked：标签一行、输入框另起一行占满宽（长地址要能看全）；否则标签和值左右对齐。
@@ -263,7 +263,7 @@ struct QuickAddSettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(PaceColor.card2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .paceCardFill(14, color: PaceColor.card2)
     }
 
     private var clearKeyButton: some View {

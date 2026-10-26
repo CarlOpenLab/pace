@@ -67,11 +67,22 @@ struct PaceCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(PaceColor.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .paceCardFill(radius)
     }
 }
 
 extension View {
+    /// 实底卡片的底 + 0.5pt 描边。深色下卡片 #1A1A1C 压在底色 #0C0C0D 上只有 1.12:1，
+    /// 光靠明度分不出边界，靠 PaceColor.line（浅色黑 10% / 深色白 10%）把边缘画出来；阴影在深色底上没用。
+    func paceCardFill(_ radius: CGFloat, color: Color = PaceColor.card) -> some View {
+        self
+            .background(color, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(PaceColor.line, lineWidth: 0.5)
+            )
+    }
+
     /// 实底内容卡（不做玻璃叠玻璃）
     func paceCard(radius: CGFloat = PaceRadius.card, padding: CGFloat = PaceSpace.cardPadding) -> some View {
         modifier(PaceCardModifier(radius: radius, padding: padding))

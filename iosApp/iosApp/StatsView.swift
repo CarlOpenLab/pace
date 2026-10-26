@@ -267,7 +267,7 @@ struct StatsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(PaceColor.card2, in: RoundedRectangle(cornerRadius: PaceRadius.block, style: .continuous))
+        .paceCardFill(PaceRadius.block, color: PaceColor.card2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(spokenValue))

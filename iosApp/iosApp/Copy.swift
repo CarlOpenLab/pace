@@ -53,7 +53,7 @@ enum Copy {
         /// 3. 设置里的「AI 一句话记账」。
         enum Settings {
             static let sectionTitle = "一句话记账"
-            static let toggleTitle = "用一句话记账"
+            static let toggleTitle = "用自己填的模型"
             static let subtitleOff = "关着。入口还在，用本机规则整理，不联网、不出手机。"
             static let subtitleOn = "开着。你打的那句话会发给你填的服务；账本其他内容不出设备。"
             static let disabledToast = "已关掉，改用本机规则，不出手机。"

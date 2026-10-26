@@ -212,10 +212,7 @@ struct BillsView: View {
                     }
                 }
             }
-            .background(
-                PaceColor.card,
-                in: RoundedRectangle(cornerRadius: PaceRadius.list, style: .continuous)
-            )
+            .paceCardFill(PaceRadius.list)
             .redacted(reason: .placeholder)
             .padding(.horizontal, PaceSpace.screen)
             .padding(.top, PaceSpace.cardGap)
