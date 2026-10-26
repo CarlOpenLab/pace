@@ -144,3 +144,14 @@ struct FailureCardFrameKey: PreferenceKey {
         if next != .zero { value = next }
     }
 }
+
+/// 首页金额：这一行的可用宽、字符串在基准字号下的宽。
+struct HomeHeroAvailableWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+struct HomeHeroBaseWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}

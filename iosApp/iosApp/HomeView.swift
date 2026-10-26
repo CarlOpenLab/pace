@@ -8,6 +8,10 @@ struct HomeView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 56
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// 金额这一行能用的宽、以及同一串字在 56 点时有多宽（量出来，不是估）。
+    @State private var heroAvailableWidth: CGFloat = 0
+    @State private var heroBaseWidth: CGFloat = 0
 
     @State private var overview: TodayOverview?
     @State private var showSkeleton = false
@@ -127,6 +131,13 @@ struct HomeView: View {
                     .foregroundStyle(PaceColor.ink2)
                 heroAmount(data)
             }
+            // 撑满卡片再加量：量的是「这一行能用多宽」，不是「这串字本身多宽」。
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                GeometryReader { g in
+                    Color.clear.preference(key: HomeHeroAvailableWidthKey.self, value: g.size.width)
+                }
+            )
 
             PaceBar(ratio: barRatio(data), danger: data.overspent)
                 .accessibilityValue(Text("已用 \(usedPercent(data))%"))
@@ -137,6 +148,18 @@ struct HomeView: View {
             ))
             .font(.footnote)
             .foregroundStyle(PaceColor.ink2)
+        }
+        .onPreferenceChange(HomeHeroAvailableWidthKey.self) {
+            heroAvailableWidth = $0
+            #if DEBUG
+            print("HERODBG avail=\($0) base=\(heroBaseWidth) size=\(heroPointSize)")
+            #endif
+        }
+        .onPreferenceChange(HomeHeroBaseWidthKey.self) {
+            heroBaseWidth = $0
+            #if DEBUG
+            print("HERODBG avail=\(heroAvailableWidth) base=\($0) size=\(heroPointSize)")
+            #endif
         }
     }
 
@@ -208,13 +231,36 @@ struct HomeView: View {
         }
     }
 
+    /// 首页金额长到多大：跟着系统字号，封顶 1.5 倍，但**不超过这一行放得下的大小**。
+    /// 整串可见是硬的（Camo、Ato、Colo 都定过），封顶是软的：放不下就停在放得下的大小，
+    /// 不出省略号、不换行。默认字号下这条完全不生效——量出来比 56 大，取的是 56。
+    private var heroPointSize: CGFloat {
+        let wanted = min(heroSize, 56 * 1.5)
+        guard heroAvailableWidth > 0, heroBaseWidth > 0 else { return wanted }
+        let fitted = 56 * (heroAvailableWidth / heroBaseWidth)
+        return min(wanted, max(56, fitted))
+    }
+
     private func heroAmount(_ data: TodayOverview) -> some View {
-        Text(LedgerStore.shared.format(abs(data.remainingMinor)))
-            .font(.system(size: heroSize, weight: .heavy, design: .rounded))
+        let text = LedgerStore.shared.format(abs(data.remainingMinor))
+        return Text(text)
+            .font(.system(size: heroPointSize, weight: .heavy, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(PaceColor.ink)
             .lineLimit(1)
-            .minimumScaleFactor(0.6)
+            // 量这串字在 56 点下多宽：拿去按比例算「放到多大才放得下」。
+            .background(alignment: .leading) {
+                Text(text)
+                    .font(.system(size: 56, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .hidden()
+                    .fixedSize()
+                    .background(
+                        GeometryReader { g in
+                            Color.clear.preference(key: HomeHeroBaseWidthKey.self, value: g.size.width)
+                        }
+                    )
+            }
             .contentTransition(reduceMotion ? .identity : .numericText())
             .animation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.35), value: data.remainingMinor)
     }
@@ -284,7 +330,59 @@ struct HomeView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// 大字号下：金额自己占一整行。同一行里时间和金额抢地方时，金额不退让
+    /// （Colo 在表里定的：金额是这一行唯一必须读准的东西），所以让金额离开那一行。
+    /// 默认字号下这一段不走，页面一个像素都不动。
+    private func stackedTxnRow(_ txn: LedgerTransaction) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: PaceSpace.inner) {
+                rowIcon(txn)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rowTitle(txn))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(PaceColor.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // 时间可以换行、可以长，金额不行。
+                    Text(homeSubtitle(txn))
+                        .font(.footnote)
+                        .foregroundStyle(PaceColor.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Text(amountLabel(txn))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(amountColor(txn))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(.vertical, 8)
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(rowAccessibilityLabel(txn)))
+    }
+
+    @ViewBuilder
     private func txnRow(_ txn: LedgerTransaction) -> some View {
+        if typeSize.isAccessibilitySize {
+            stackedTxnRow(txn)
+        } else {
+            compactTxnRow(txn)
+        }
+    }
+
+    private func rowIcon(_ txn: LedgerTransaction) -> some View {
+        ZStack {
+            Circle()
+                .fill(PaceColor.softFill)
+                .frame(width: 34, height: 34)
+            Image(systemName: iconName(for: txn))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PaceColor.ink)
+        }
+    }
+
+    private func compactTxnRow(_ txn: LedgerTransaction) -> some View {
         HStack(spacing: PaceSpace.inner) {
             ZStack {
                 Circle()
@@ -314,7 +412,6 @@ struct HomeView: View {
                 .monospacedDigit()
                 .foregroundStyle(amountColor(txn))
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
         }
         .padding(.vertical, 8)
         .frame(minHeight: 44)
