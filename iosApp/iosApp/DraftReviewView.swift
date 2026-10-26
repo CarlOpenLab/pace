@@ -160,7 +160,7 @@ struct DraftReviewView: View {
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             Button(Copy.Failed.retry) { saveAll() }
-                .buttonStyle(PillChipStyle(selected: true))
+                .buttonStyle(GlassSecondaryStyle())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -232,9 +232,9 @@ struct DraftReviewView: View {
             } else {
                 HStack(spacing: 8) {
                     Button(Copy.Ai.Input.editInline) { editingId = item.id }
-                        .buttonStyle(PillChipStyle())
+                        .buttonStyle(GlassSecondaryStyle())
                     Button(Copy.Draft.deleteAction) { remove(item.id) }
-                        .buttonStyle(PillChipStyle())
+                        .buttonStyle(GlassSecondaryStyle(tint: PaceColor.danger))
                     Spacer()
                     if let marker = missingMarker(missing) {
                         StatusPill(text: marker, kind: .neutral)

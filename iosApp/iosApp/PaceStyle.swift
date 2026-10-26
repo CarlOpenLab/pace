@@ -238,6 +238,25 @@ struct PillChipStyle: ButtonStyle {
     }
 }
 
+/// 次级按钮：系统玻璃胶囊，字自己给。
+///
+/// 玻璃一旦交回系统，字色也跟着交出去了，禁用时系统会把它压到几乎和玻璃同色
+/// （暗色下量到 1.38:1）。可读性不交给系统猜，所以 label 里的 Text 显式给色。
+struct GlassSecondaryStyle: ButtonStyle {
+    var tint: Color = PaceColor.ink
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .contentShape(Capsule())
+    }
+}
+
 // MARK: - 骨架
 
 struct SkeletonCard: View {
