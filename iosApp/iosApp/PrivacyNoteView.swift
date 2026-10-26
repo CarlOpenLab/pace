@@ -59,7 +59,7 @@ struct PrivacyNoteView: View {
 
                     Text(Copy.PrivacySheet.settingsHint)
                         .font(.system(size: 11))
-                        .foregroundStyle(PaceColor.ink3)
+                        .foregroundStyle(PaceColor.ink2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 }

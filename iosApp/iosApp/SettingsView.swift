@@ -15,6 +15,9 @@ struct SettingsView: View {
     @State private var confirmClear = false
     @State private var importMessage: String?
     @State private var exportShareItem: ShareItem?
+    /// 写文件失败时留着的那次导出，供「再试一次」重跑。
+    @State private var failedExport: (() -> Void)?
+    @State private var exportFailed = false
     @State private var showImporter = false
     @State private var showSavedBadge = false
 
@@ -52,6 +55,16 @@ struct SettingsView: View {
             }
             .sheet(item: $exportShareItem) { item in
                 ShareSheet(items: [item.url])
+            }
+            .alert(Copy.Failed.Export.title, isPresented: $exportFailed) {
+                Button(Copy.Failed.retry) {
+                    let again = failedExport
+                    failedExport = nil
+                    again?()
+                }
+                Button(Copy.Confirm.Duplicate.secondary, role: .cancel) { failedExport = nil }
+            } message: {
+                Text(Copy.Failed.Export.body)
             }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .data]) { result in
                 switch result {
@@ -272,19 +285,34 @@ struct SettingsView: View {
         let url: URL
     }
 
-    private func exportCsv() { share(text: LedgerStore.shared.api.exportCsv(), ext: "csv") }
+    private func exportCsv() { share(text: LedgerStore.shared.api.exportCsv(), ext: "csv", retry: exportCsv) }
 
     private func exportJson() {
-        share(text: LedgerStore.shared.api.exportJson(timezoneId: LedgerStore.shared.timezoneId), ext: "json")
+        share(
+            text: LedgerStore.shared.api.exportJson(timezoneId: LedgerStore.shared.timezoneId),
+            ext: "json",
+            retry: exportJson
+        )
     }
 
-    private func share(text: String, ext: String) {
+    /// 文件没写成就不弹分享面板：面板一出来就是「导出好了」，跟「没写成」同屏，
+    /// 用户只会信面板。
+    private func share(text: String, ext: String, retry: @escaping () -> Void) {
         let stamp = DateFormatter(format: "yyyyMMdd-HHmmss").string(from: Date())
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pace-ledger-\(stamp).\(ext)")
-        try? text.data(using: .utf8)?.write(to: url)
+        do {
+            guard let data = text.data(using: .utf8) else { throw ExportError.encoding }
+            try data.write(to: url)
+        } catch {
+            failedExport = retry
+            exportFailed = true
+            return
+        }
         exportShareItem = ShareItem(url: url)
     }
+
+    private enum ExportError: Error { case encoding }
 
     // MARK: 导入
 

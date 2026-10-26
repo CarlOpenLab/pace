@@ -144,32 +144,18 @@ struct HomeView: View {
         }
     }
 
+    /// 没设预算的卡：日期加「还没设预算」胶囊、一句提示、设置预算——就这三段。
+    /// 原来这里还有「今天还剩」和一根 44pt 破折号，屏幕上看着就是一根加载条，
+    /// 用户以为 app 卡住了。没数字可报就别摆一个位置出来。
     private func noBudgetContent(_ data: TodayOverview) -> some View {
-        VStack(alignment: .leading, spacing: PaceSpace.inner) {
-            VStack(alignment: .leading, spacing: PaceSpace.inner) {
-                header(data)
+        VStack(alignment: .leading, spacing: 0) {
+            header(data)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(Copy.Home.remainingLabel)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(PaceColor.ink2)
-                    // 没设预算时不是「0」，也不是占位条：和金额同一档字体的 em dash，ink3。
-                    // 用默认字面而不是 rounded——rounded 的破折号两端是圆头，44pt heavy 下整颗像一根灰胶囊，
-                    // 会被读成「正在加载」的占位条。
-                    Text("—")
-                        .font(.system(size: 44, weight: .heavy))
-                        .foregroundStyle(PaceColor.ink3)
-                        .lineLimit(1)
-                        .accessibilityHidden(true)
-                }
-
-                Text(Copy.Home.noBudgetHint)
-                    .font(.footnote)
-                    .foregroundStyle(PaceColor.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("\(Copy.Home.statusNoBudget)，\(Copy.Home.noBudgetHint)"))
+            Text(Copy.Home.noBudgetHint)
+                .font(.footnote)
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 12)
 
             Button {
                 state.tab = .settings
@@ -177,7 +163,10 @@ struct HomeView: View {
                 Text("设置预算")
             }
             .buttonStyle(PrimaryButtonStyle())
+            .padding(.top, 16)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(Copy.Home.statusNoBudget)，\(Copy.Home.noBudgetHint)"))
     }
 
     private func header(_ data: TodayOverview) -> some View {

@@ -12,6 +12,10 @@ struct DraftReviewView: View {
     @State private var saving = false
     @State private var toast: String?
     @State private var duplicateNotice = false
+    /// 没保存上的那几笔：停在这一页说清楚，不用会消失的提示。
+    @State private var failureBody: String?
+    /// 从类型菜单走「改成手动记账」的那一笔。
+    @State private var manualPrefill: AddPrefill?
 
     init(drafts: [DraftItem], onDone: @escaping () -> Void) {
         _drafts = State(initialValue: drafts)
@@ -35,8 +39,15 @@ struct DraftReviewView: View {
             ScrollView {
                 VStack(spacing: PaceSpace.inner) {
                     header
-                    ForEach($drafts) { $draft in
-                        draftCard(draft: $draft)
+                    if drafts.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach($drafts) { $draft in
+                            draftCard(draft: $draft)
+                        }
+                    }
+                    if let failureBody {
+                        failureCard(failureBody)
                     }
                 }
                 .padding(.horizontal, PaceSpace.screen)
@@ -48,8 +59,8 @@ struct DraftReviewView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(saveTitle) { saveAll() }
-                        .buttonStyle(.glassProminent)
-                        .disabled(missingCount > 0 || saving)
+                        .buttonStyle(ToolbarSaveStyle(enabled: canSave))
+                        .disabled(!canSave)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -74,6 +85,9 @@ struct DraftReviewView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
+            .sheet(item: $manualPrefill) { prefill in
+                AddView(txnId: nil, prefill: prefill)
+            }
             .alert(Copy.Confirm.Duplicate.title, isPresented: $duplicateNotice) {
                 Button(Copy.Confirm.Duplicate.primary) { saveDuplicatesAnyway() }
                 Button(Copy.Confirm.Duplicate.secondary, role: .cancel) {}
@@ -95,8 +109,49 @@ struct DraftReviewView: View {
         }
     }
 
+    /// 一笔都没有的时候别让人按一个空操作。
+    private var canSave: Bool {
+        !drafts.isEmpty && missingCount == 0 && !saving
+    }
+
     private var saveTitle: String {
-        missingCount > 0 ? Copy.Draft.fillRequiredButton : Copy.Draft.saveButton(count: readyCount)
+        if missingCount > 0 { return Copy.Draft.fillRequiredButton(field: supplementField) }
+        return Copy.Draft.saveButton(count: readyCount)
+    }
+
+    /// 草稿全删光以后这一页的样子：说清楚账本没变，门在哪儿。
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(Copy.Draft.emptyTitle)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PaceColor.ink)
+            Text(Copy.Draft.emptySubtitle)
+                .font(.system(size: 13))
+                .foregroundStyle(PaceColor.ink2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .paceCardFill(18)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// 失败卡：停着不走，带一个能按的「再试一次」。
+    private func failureCard(_ body: String) -> some View {
+        VStack(alignment: .leading, spacing: PaceSpace.inner) {
+            Text(Copy.Failed.DraftSave.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PaceColor.ink)
+            Text(body)
+                .font(.system(size: 13))
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(Copy.Failed.retry) { saveAll() }
+                .buttonStyle(PillChipStyle(selected: true))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .paceCardFill(18)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - 顶部与底部
@@ -134,14 +189,15 @@ struct DraftReviewView: View {
                 Text(item.note.isEmpty ? item.category : item.note)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(PaceColor.ink)
-                Spacer()
+                Spacer(minLength: 8)
+                typeCapsule(draft: draft)
                 if item.amountMinor > 0 {
                     Text(LedgerStore.shared.format(item.amountMinor, currency: item.currency))
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(PaceColor.ink)
                 } else {
-                    Text("—")
+                    Text(Copy.Draft.emptyAmount)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundStyle(PaceColor.ink3)
                 }
@@ -152,7 +208,7 @@ struct DraftReviewView: View {
                 .foregroundStyle(PaceColor.ink2)
 
             if item.amountMinor <= 0 {
-                Text("这句话里没有金额，不猜。")
+                Text(Copy.Draft.noAmountHint)
                     .font(.system(size: 12))
                     .foregroundStyle(PaceColor.ink2)
             }
@@ -177,6 +233,67 @@ struct DraftReviewView: View {
         .paceCardFill(18)
     }
 
+    /// 类型做成卡片头部那颗小胶囊：跟 QuickAddView 右上角那颗一套值，只是它能点。
+    /// 菜单里只有支出、收入——转账和退款要指定账户或原账单，盲选出来就是错账。
+    @ViewBuilder
+    private func typeCapsule(draft: Binding<DraftItem>) -> some View {
+        let item = draft.wrappedValue
+        let missingType = item.missingFields.contains(DraftMissing.type)
+
+        Menu {
+            // 转账和退款不能从两项里盲选：那两样要指定账户或原账单，
+            // 选出来就是一笔没关联的错账。想记这两种的人从最后一行出口走。
+            ForEach([TxnTypes.expense, TxnTypes.income], id: \.self) { value in
+                Button {
+                    draft.wrappedValue.type = value
+                    draft.wrappedValue.missingFields.removeAll { $0 == DraftMissing.type }
+                } label: {
+                    if item.type == value {
+                        Label(typeLabel(value), systemImage: "checkmark")
+                    } else {
+                        Text(typeLabel(value))
+                    }
+                }
+            }
+            Divider()
+            // 跟当前有没有类型无关：想把这笔记成退款，跟它原来是支出没关系。
+            Button(Copy.Draft.toManual) {
+                manualPrefill = AddPrefill(
+                    amountText: item.amountMinor > 0
+                        ? Money.shared.formatMinor(amountMinor: item.amountMinor)
+                        : "",
+                    localDate: item.localDate,
+                    note: item.note
+                )
+            }
+        } label: {
+            Text(missingType ? Copy.Draft.Missing.typeCapsule : typeLabel(item.type))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(missingType ? PaceColor.accent : PaceColor.ink2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(missingType ? PaceColor.card : PaceColor.card2)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(missingType ? PaceColor.accent : .clear, lineWidth: 0.5)
+                )
+                .frame(height: 44)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .accessibilityLabel(Copy.Draft.Missing.type)
+        .accessibilityValue(missingType ? Copy.Draft.Missing.typeNotChosen : typeLabel(item.type))
+        .accessibilityHint(missingType ? Copy.Draft.Missing.typeHintNotChosen : Copy.Draft.Missing.typeHintChosen)
+    }
+
+    private func typeLabel(_ type: String) -> String {
+        TxnTypes.all.first(where: { $0.0 == type })?.1 ?? type
+    }
+
     private func metaLine(_ item: DraftItem) -> String {
         var parts = [item.category]
         if !item.localDate.isEmpty {
@@ -188,6 +305,8 @@ struct DraftReviewView: View {
 
     private func missingMarker(_ fields: [String]) -> String? {
         guard !fields.isEmpty else { return nil }
+        // 缺的只有类型时不再让状态标说第二遍：胶囊已经在说「选类型」了。
+        if fields.count == 1, fields.first == DraftMissing.type { return nil }
         if fields.count > 1 { return Copy.Draft.statusNeedsSupplement }
         switch fields.first {
         case DraftMissing.amount: return Copy.Draft.Missing.amount
@@ -257,9 +376,23 @@ struct DraftReviewView: View {
     // MARK: - 入账
 
     private func saveAll() {
-        guard !saving, missingCount == 0 else { return }
+        // 空数组不再往下走：否则「已保存 0 笔」哪天又从别处冒回来。
+        guard !saving, missingCount == 0, !drafts.isEmpty else { return }
         saving = true
+        failureBody = nil
         let outcome = DraftSaver.save(drafts)
+
+        // 有真没写进去的：先把话说出来，再说重复的。
+        if !outcome.failed.isEmpty {
+            saving = false
+            let kept = outcome.failed + outcome.duplicated
+            withAnimation { drafts = kept }
+            failureBody = outcome.saved > 0
+                ? Copy.Failed.DraftSave.partial(saved: outcome.saved, failed: outcome.failed.count)
+                : (kept.count == 1 ? Copy.Failed.DraftSave.bodyOne : Copy.Failed.DraftSave.bodyMany)
+            if !outcome.duplicated.isEmpty { duplicateNotice = true }
+            return
+        }
 
         // 全都撞上重复，就直接问要不要照样记，不先报一个「已保存 0 笔」。
         if outcome.saved == 0, !outcome.duplicated.isEmpty {
@@ -292,6 +425,15 @@ struct DraftReviewView: View {
     /// 用户说「照样记」：把剩下这几笔强制写进去。
     private func saveDuplicatesAnyway() {
         let outcome = DraftSaver.save(drafts, force: true)
+        if !outcome.failed.isEmpty {
+            withAnimation {
+                drafts = outcome.failed
+                failureBody = outcome.saved > 0
+                    ? Copy.Failed.DraftSave.partial(saved: outcome.saved, failed: outcome.failed.count)
+                    : (outcome.failed.count == 1 ? Copy.Failed.DraftSave.bodyOne : Copy.Failed.DraftSave.bodyMany)
+            }
+            return
+        }
         withAnimation { toast = Copy.Save.saved(count: outcome.saved) }
         Task {
             try? await Task.sleep(nanoseconds: 1_400_000_000)

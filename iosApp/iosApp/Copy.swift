@@ -220,8 +220,9 @@ enum Copy {
     // MARK: - 4. 草稿确认页
 
     enum Draft {
+        /// 数字只在大于零时出现：0 笔的时候别把 0 写进句子里。
         static func title(count: Int) -> String {
-            "草稿 \(count) 笔"
+            count > 0 ? "草稿 \(count) 笔" : "没有草稿"
         }
         static let headerLeft = "确认后才进账本"
         static let headerRight = "逐笔可改"
@@ -231,18 +232,38 @@ enum Copy {
             return "还有 \(count) 笔要补\(field)。"
         }
         static func saveButton(count: Int) -> String {
-            "保存 \(count) 笔"
+            count > 0 ? "保存 \(count) 笔" : "保存"
         }
-        static let fillRequiredButton = "先补金额"
+        /// 缺的都一样就说那一样；说不到一起就只说还不能保存。
+        static func fillRequiredButton(field: String?) -> String {
+            guard let field else { return "补完再保存" }
+            return "先补\(field)"
+        }
+        /// 草稿全删光以后这一页的样子。
+        static let emptyTitle = "这一批草稿都删掉了。"
+        static let emptySubtitle = "账本没有变化。关掉这一页就行。"
         static let discardAll = "全部不要"
         static let deleteAction = "删除"
         static let statusNeedsSupplement = "需要补充"
         static let statusReady = "可以保存"
         static let footer = "草稿先给你看，你确认的才进账本。"
 
+        /// 金额没解析出来时右边那个占位（按字画的破折号，不是 44pt 色块）。
+        static let emptyAmount = "—"
+        /// 金额为 0 那行说明。
+        static let noAmountHint = "这句话里没有金额，不猜。"
+        /// 卡片头部类型胶囊的去表单出口。
+        static let toManual = "退款或转账，改成手动记账"
+
         /// 4.1 「需要补充」的标记措辞（标记 + 点开补的时候那行提示）。
         enum Missing {
             static let amount = "需要金额"
+            /// 缺类型时胶囊里那两个字：说的是现在要做的事。
+            static let typeCapsule = "选类型"
+            /// 读屏：没选时的值。
+            static let typeNotChosen = "没选"
+            static let typeHintNotChosen = "点按选择支出或收入"
+            static let typeHintChosen = "点按可以改成支出或收入"
             static let amountHint = "补一个金额就能保存"
             static let date = "需要日期"
             static let dateHint = "现在按今天算，可以改"
@@ -511,6 +532,49 @@ enum Copy {
                 }
             }
         }
+    }
+
+    /// 6.4 说出来的失败：哪件事没成 / 现在什么状态 / 能不能再试。
+    enum Failed {
+
+        /// 撤销删除：账本确实变了（这笔没了），所以不写「账本没有变化」。
+        enum Undo {
+            static let title = "没恢复上"
+            static let body = "这笔还是删掉的，账本没有变化。再点一次「撤销」试试。"
+        }
+
+        /// 删除本身没成：账本没变，这笔还在。
+        enum Delete {
+            static let title = "没删掉"
+            static let body = "这笔还在账本里，账本没有变化。再点一次「删除」试试。"
+        }
+
+        /// 草稿保存失败（不是重复）。
+        enum DraftSave {
+            static let title = "没保存上"
+            static let bodyMany = "这几笔还在草稿页里，账本没有变化。再试一次。"
+            static let bodyOne = "这笔还在草稿页里，账本没有变化。再试一次。"
+
+            /// 部分成功：存进去的那几笔真的进了账本，别再说「没有变化」。
+            static func partial(saved: Int, failed: Int) -> String {
+                "存进去 \(saved) 笔，还有 \(failed) 笔没保存上，还在草稿页里。再试一次。"
+            }
+        }
+
+        /// 就地确认那一路：不能复用「这次没整理出来」，那是解析失败的话。
+        enum InlineSave {
+            static let title = "没记上"
+            static let body = "账本没有变化。再按一次「记上」。"
+        }
+
+        /// 导出：写文件失败时别弹分享面板。
+        enum Export {
+            static let title = "导出没成功"
+            static let body = "文件没写成，账本没有变化。再试一次。"
+        }
+
+        /// 再说一次的那个动作（三条失败卡上都有）。
+        static let retry = "再试一次"
     }
 
     // MARK: - 7.31 通用校验错误（TxnUI）

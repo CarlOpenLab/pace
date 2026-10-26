@@ -26,6 +26,8 @@ struct QuickAddView: View {
     @State private var savingInline = false
     @State private var inlineSaved = false
     @State private var duplicateNotice = false
+    /// 「记上」没成功：跟「这次没整理出来」是两件事，不能复用那张卡。
+    @State private var inlineSaveFailed = false
 
     @FocusState private var inputFocused: Bool
     @AccessibilityFocusState private var draftFocused: Bool
@@ -190,6 +192,8 @@ struct QuickAddView: View {
             } else {
                 draftCard(draft)
 
+                if inlineSaveFailed { inlineFailureCard }
+
                 Button { saveInline(draft) } label: {
                     HStack(spacing: 8) {
                         if savingInline {
@@ -215,6 +219,23 @@ struct QuickAddView: View {
             }
         }
         .transition(.opacity)
+    }
+
+    /// 没记上的那句话：停在这儿，按「记上」就是再试一次。
+    private var inlineFailureCard: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(Copy.Failed.InlineSave.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PaceColor.ink)
+            Text(Copy.Failed.InlineSave.body)
+                .font(.system(size: 13))
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .paceCardFill(18)
+        .accessibilityElement(children: .combine)
     }
 
     private func draftCard(_ item: DraftItem) -> some View {
@@ -308,8 +329,8 @@ struct QuickAddView: View {
         if !outcome.duplicated.isEmpty {
             duplicateNotice = true
         } else {
-            localFailure = false
-            failure = .unreadable
+            // 账没记上，话也不能说成「那句话没读懂」。
+            withAnimation { inlineSaveFailed = true }
         }
     }
 
@@ -322,8 +343,7 @@ struct QuickAddView: View {
         if outcome.saved > 0 {
             finishInline()
         } else {
-            localFailure = false
-            failure = .unreadable
+            withAnimation { inlineSaveFailed = true }
         }
     }
 

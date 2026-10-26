@@ -60,9 +60,20 @@ struct BillsView: View {
     @State private var undoDismissTask: Task<Void, Never>?
 
     private struct UndoItem {
+        enum Kind {
+            /// 删掉了，可以撤销。
+            case deleted
+            /// 撤销成功，恢复回来了。
+            case restored
+            /// 删除本身没成：这笔还在账本里。
+            case deleteFailed
+            /// 撤销没成：这笔还是删掉的，还能再点一次。
+            case undoFailed
+        }
+
         let txn: LedgerTransaction
         let note: String
-        let restored: Bool
+        let kind: Kind
     }
 
     var body: some View {
@@ -107,13 +118,9 @@ struct BillsView: View {
             .overlay(alignment: .bottom) {
                 if let undoItem {
                     BillsUndoBar(
-                        message: undoItem.restored
-                            ? Copy.Delete.restored
-                            : Copy.Delete.toast(note: undoItem.note),
-                        accessibilityMessage: undoItem.restored
-                            ? Copy.Delete.restored
-                            : Copy.Delete.toastAccessibility(note: undoItem.note),
-                        canUndo: !undoItem.restored,
+                        message: undoBarMessage(undoItem),
+                        accessibilityMessage: undoBarAccessibility(undoItem),
+                        canUndo: undoItem.kind == .deleted || undoItem.kind == .undoFailed,
                         onUndo: undoDelete
                     )
                     .padding(.horizontal, PaceSpace.screen)
@@ -426,22 +433,54 @@ struct BillsView: View {
     private func delete(_ txn: LedgerTransaction) {
         let deleted = LedgerStore.shared.api.deleteTransaction(id: txn.id)
         reload()
-        guard let deleted else { return }
+        guard let deleted else {
+            // 没删掉就得说：用户以为这笔已经没了，比什么都不说更糟。
+            presentFailure(txn: txn)
+            return
+        }
         presentUndo(for: deleted)
+    }
+
+    /// 删除没成功：账本没变，浮条上不挂「撤销」——没有可撤销的事。
+    private func presentFailure(txn: LedgerTransaction) {
+        undoDismissTask?.cancel()
+        let note = txn.note.isEmpty ? txn.category : txn.note
+        withAnimation(undoAnimation) {
+            undoItem = UndoItem(txn: txn, note: note, kind: .deleteFailed)
+        }
+        scheduleUndoDismiss(after: 6)
+    }
+
+    private func undoBarMessage(_ item: UndoItem) -> String {
+        switch item.kind {
+        case .deleted: return Copy.Delete.toast(note: item.note)
+        case .restored: return Copy.Delete.restored
+        case .deleteFailed: return Copy.Failed.Delete.body
+        case .undoFailed: return Copy.Failed.Undo.body
+        }
+    }
+
+    private func undoBarAccessibility(_ item: UndoItem) -> String {
+        switch item.kind {
+        case .deleted: return Copy.Delete.toastAccessibility(note: item.note)
+        case .restored: return Copy.Delete.restored
+        case .deleteFailed: return Copy.Failed.Delete.title + "，" + Copy.Failed.Delete.body
+        case .undoFailed: return Copy.Failed.Undo.title + "，" + Copy.Failed.Undo.body
+        }
     }
 
     private func presentUndo(for txn: LedgerTransaction) {
         undoDismissTask?.cancel()
         let note = txn.note.isEmpty ? txn.category : txn.note
         withAnimation(undoAnimation) {
-            undoItem = UndoItem(txn: txn, note: note, restored: false)
+            undoItem = UndoItem(txn: txn, note: note, kind: .deleted)
         }
         scheduleUndoDismiss(after: 8)
     }
 
     /// 撤销 = 用原数据重新入账（U3）。
     private func undoDelete() {
-        guard let item = undoItem, !item.restored else { return }
+        guard let item = undoItem, item.kind == .deleted || item.kind == .undoFailed else { return }
         let deleted = item.txn
 
         let result = LedgerStore.shared.api.saveTransaction(
@@ -460,11 +499,18 @@ struct BillsView: View {
             )
         )
 
-        guard result.transaction != nil else { return }
+        guard result.transaction != nil else {
+            // 撤销失败：账本确实变了（这笔没了），口径不能写「没有变化」。
+            withAnimation(undoAnimation) {
+                undoItem = UndoItem(txn: deleted, note: item.note, kind: .undoFailed)
+            }
+            scheduleUndoDismiss(after: 8)
+            return
+        }
 
         reload()
         withAnimation(undoAnimation) {
-            undoItem = UndoItem(txn: deleted, note: item.note, restored: true)
+            undoItem = UndoItem(txn: deleted, note: item.note, kind: .restored)
         }
         scheduleUndoDismiss(after: 2)
     }

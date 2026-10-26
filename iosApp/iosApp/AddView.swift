@@ -1,27 +1,20 @@
 import SwiftUI
 import shared
 
-/// 工具栏的「保存」：能用时实底 accent，不能用时 card2 底 + ink3 字。
-struct SaveToolbarButtonStyle: ButtonStyle {
-    let enabled: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(enabled ? PaceColor.onAccent : PaceColor.ink3)
-            .padding(.horizontal, 14)
-            .frame(height: 34)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(enabled ? PaceColor.accent : PaceColor.card2)
-            )
-            .opacity(configuration.isPressed ? 0.85 : 1)
-    }
-}
-
 /// 记一笔 / 编辑账单（spec §7）。
 /// 结构：一句话入口 → 金额 → 类型 → 分类 → 日期与账户 → 备注 → 计入预算 / 退款关联。
+/// 从草稿带进手动记账页的东西：已经解析出来的金额、日期、备注跟着走，
+/// 只有类型留空让用户挑——别把人送进一张白纸，那等于刚才那句白说了。
+struct AddPrefill: Identifiable {
+    let id = UUID()
+    var amountText: String
+    var localDate: String
+    var note: String
+}
+
 struct AddView: View {
     let txnId: String?
+    var prefill: AddPrefill? = nil
     let onDone: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -50,17 +43,18 @@ struct AddView: View {
     /// Copy 里没有账户预设的键（只有占位文案），按 spec 列在这里。
     private static let accountPresets = ["现金", "微信", "支付宝", "银行卡"]
 
-    init(txnId: String?) {
+    init(txnId: String?, prefill: AddPrefill? = nil) {
         self.txnId = txnId
+        self.prefill = prefill
         self.onDone = {}
 
         let existing = txnId.flatMap { LedgerStore.shared.api.transaction(id: $0) }
 
         _type = State(initialValue: existing?.type ?? TxnTypes.expense)
-        _amountText = State(initialValue: existing.map { Money.shared.formatMinor(amountMinor: $0.amountMinor) } ?? "")
+        _amountText = State(initialValue: existing.map { Money.shared.formatMinor(amountMinor: $0.amountMinor) } ?? prefill?.amountText ?? "")
         _category = State(initialValue: existing?.category ?? "餐饮")
-        _localDate = State(initialValue: existing?.localDate ?? LedgerStore.shared.todayIso)
-        _note = State(initialValue: existing?.note ?? "")
+        _localDate = State(initialValue: existing?.localDate ?? prefill?.localDate ?? LedgerStore.shared.todayIso)
+        _note = State(initialValue: existing?.note ?? prefill?.note ?? "")
         _account = State(initialValue: existing?.account ?? "现金")
         _countInBudget = State(initialValue: existing?.countInBudget ?? true)
         _refundOfId = State(initialValue: existing?.refundOfId)
@@ -108,16 +102,23 @@ struct AddView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
+                    // 一个安静的叉：不带玻璃气泡。iOS 26 的玻璃底画得比按钮框
+                    // 大一圈，会压到旁边那颗保存胶囊上，两套长相不该并排。
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
-                            .frame(width: 30, height: 30)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(PaceColor.ink2)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("关掉")
                 }
+                // iOS 26 默认给每个工具栏项画一层共享的玻璃底，那层比按钮框大一圈，
+                // 会压到旁边那颗保存胶囊上。这里只留自己画的东西。
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         save(force: false)
@@ -126,7 +127,7 @@ struct AddView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .padding(.horizontal, 4)
                     }
-                    .buttonStyle(SaveToolbarButtonStyle(enabled: isAmountValid))
+                    .buttonStyle(ToolbarSaveStyle(enabled: isAmountValid))
                     .disabled(!isAmountValid)
                 }
             }
@@ -176,7 +177,7 @@ struct AddView: View {
                 Spacer(minLength: 12)
                 Text(Copy.Ai.Entry.placeholder)
                     .font(.system(size: 13))
-                    .foregroundStyle(PaceColor.ink3)
+                    .foregroundStyle(PaceColor.ink2)
             }
             .foregroundStyle(PaceColor.ai)
             .padding(.horizontal, 16)
@@ -341,7 +342,7 @@ struct AddView: View {
                         .foregroundStyle(PaceColor.ink3)
                 }
                 .font(.system(size: 15))
-                .foregroundStyle(account.isEmpty ? PaceColor.ink3 : PaceColor.ink2)
+                .foregroundStyle(PaceColor.ink2)
             }
         }
         .frame(minHeight: 52)
@@ -420,7 +421,7 @@ struct AddView: View {
                             .foregroundStyle(PaceColor.ink3)
                     }
                     .font(.system(size: 15))
-                    .foregroundStyle(refundOfId == nil ? PaceColor.ink3 : PaceColor.ink2)
+                    .foregroundStyle(PaceColor.ink2)
                     .frame(minHeight: 32)
                     .contentShape(Rectangle())
                 }

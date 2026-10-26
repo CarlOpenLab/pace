@@ -6,7 +6,10 @@ import shared
 enum DraftSaver {
     struct Outcome {
         var saved = 0
+        /// 账本里已经有了的这几笔，问用户要不要照样记。
         var duplicated: [DraftItem] = []
+        /// 真没写进去的（不是重复）：必须说出来，否则存一半会报「已保存 2 笔」。
+        var failed: [DraftItem] = []
     }
 
     /// - Parameter force: 用户已经说过「照样记」，跳过重复拦截。
@@ -28,6 +31,8 @@ enum DraftSaver {
                 outcome.saved += 1
             } else if result.errorCode == "DUPLICATE_FINGERPRINT" {
                 outcome.duplicated.append(draft)
+            } else {
+                outcome.failed.append(draft)
             }
         }
         return outcome
