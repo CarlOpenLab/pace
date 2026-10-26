@@ -188,9 +188,12 @@ struct QuickAddSettingsView: View {
                     // 明文地址会把 Key 露在同一条网络里。
                     if isPlainHTTP {
                         Text(Copy.Ai.Settings.Endpoint.plainHTTP)
-                            .font(PaceType.caption)
+                            .font(PaceType.secondary)
                             .foregroundStyle(PaceColor.ink2)
                             .fixedSize(horizontal: false, vertical: true)
+                            // 行间 4 + 补 4 = 距输入框 8（Colo 2.3.2）。不用红色：
+                            // 明文是「这个选择有代价」，不是失败；红色留给真失败。
+                            .padding(.top, 4)
                     }
                 }
             }
