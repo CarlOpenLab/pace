@@ -131,8 +131,7 @@ struct AiDraftClient {
     // MARK: - 网络
 
     private static func send(body: [String: Any], config: AiConfig) async throws -> Data {
-        guard let url = URL(string: config.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)),
-              url.scheme == "https" || url.scheme == "http" else {
+        guard let url = AiProvider.chatURL(from: config.endpoint) else {
             throw AiFailure.addressUnreachable
         }
         var request = URLRequest(url: url)

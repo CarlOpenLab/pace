@@ -10,8 +10,9 @@ configs:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    CODE_SIGNING_ALLOWED: "NO"
-    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_ALLOWED: "YES"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_ENTITLEMENTS: iosApp/Pace.entitlements
     GENERATE_INFOPLIST_FILE: "NO"
 targets:
   iosApp:
