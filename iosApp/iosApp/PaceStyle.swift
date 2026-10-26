@@ -178,10 +178,11 @@ struct PrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .semibold))
+            .font(PaceType.button)
             .foregroundStyle(PaceColor.onAccent)
             .frame(maxWidth: .infinity)
-            .frame(height: height)
+            // 最小高度不是固定高度：字一放大按钮得跟着长，不然字被切在框里。
+            .frame(minHeight: height)
             .background(PaceColor.accent, in: RoundedRectangle(cornerRadius: PaceRadius.block, style: .continuous))
             .opacity(configuration.isPressed ? 0.85 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -198,9 +199,10 @@ struct ToolbarSaveStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .font(PaceType.button)
             .foregroundStyle(enabled ? PaceColor.onAccent : PaceColor.ink2)
             .padding(.horizontal, 14)
-            .frame(height: 34)
+            .frame(minHeight: 34)
             .background(
                 Capsule(style: .continuous)
                     .fill(enabled ? PaceColor.accent : PaceColor.card2)
@@ -212,10 +214,10 @@ struct ToolbarSaveStyle: ButtonStyle {
 struct PlainButtonStylePace: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .medium))
+            .font(PaceType.rowTitle)
             .foregroundStyle(PaceColor.ink2)
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(minHeight: 44)
             .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
@@ -227,10 +229,10 @@ struct PillChipStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 14, weight: .medium))
+            .paceFont(PaceType.labelBase, .medium)
             .foregroundStyle(selected ? PaceColor.onAccent : PaceColor.ink)
             .padding(.horizontal, 14)
-            .padding(.vertical, 7)
+            .pacePadding(7, .vertical)
             .background(selected ? AnyShapeStyle(PaceColor.accent) : AnyShapeStyle(PaceColor.card2), in: Capsule(style: .continuous))
             .frame(minHeight: 44)
             .contentShape(Rectangle())
@@ -247,10 +249,10 @@ struct GlassSecondaryStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 14, weight: .medium))
+            .font(PaceType.button)
             .foregroundStyle(tint)
             .padding(.horizontal, 16)
-            .padding(.vertical, 9)
+            .pacePadding(9, .vertical)
             .frame(minHeight: 44)
             .glassEffect(.regular.interactive(), in: .capsule)
             .opacity(configuration.isPressed ? 0.85 : 1)

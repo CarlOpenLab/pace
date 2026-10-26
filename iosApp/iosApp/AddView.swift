@@ -42,6 +42,7 @@ struct AddView: View {
     @State private var customAccountDraft = ""
 
     // 一句话
+    @ScaledMetric(relativeTo: .largeTitle) private var displaySize: CGFloat = 48
     @State private var mode: AddFillMode
     @State private var sentenceText = ""
     @State private var busy = false
@@ -150,7 +151,7 @@ struct AddView: View {
                             // 玻璃上的字系统会自己调暗：暗色下不可用时只有 2.18:1。
                             // 可读性不交给系统猜，不可用时显式给 ink2（5.84:1）。
                             Text(Copy.Add.save)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(PaceType.button)
                                 .foregroundStyle(isAmountValid ? PaceColor.ink : PaceColor.ink2)
                         }
                         .disabled(!isAmountValid)
@@ -209,18 +210,23 @@ struct AddView: View {
 
     /// 只有输入框：没有小标题、没有 sparkles、没有说明行（spec §2）。
     private var inputCard: some View {
-        TextField("", text: $sentenceText)
-            .font(.system(size: 17))
+        // 占位和输入框并排放在一层里，而不是压在输入框上。
+        // 压在框上时它是被框的高度裁的，最大字号下系统给的是「早饭 12，地…」——
+        // 省略号就是把用户要读的话切掉（Camo 的规矩：不许加省略号）。
+        // 并排之后它自己换行、把卡片撑高，默认字号下两者都是一行，一个像素都不动。
+        ZStack(alignment: .topLeading) {
             // 占位自己画：系统那层灰在亮色卡片上只有 3.0:1，用户读的第一行字
             // 不该比说明文字还弱。空着的时候才出现，和输入框同一套字号与缩进。
-            .overlay(alignment: .leading) {
-                if sentenceText.isEmpty {
-                    Text(Copy.Ai.Input.placeholder)
-                        .font(.system(size: 17))
-                        .foregroundStyle(PaceColor.ink2)
-                        .allowsHitTesting(false)
-                }
+            if sentenceText.isEmpty {
+                Text(Copy.Ai.Input.placeholder)
+                    .font(.body)
+                    .foregroundStyle(PaceColor.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .allowsHitTesting(false)
             }
+
+            TextField("", text: $sentenceText)
+            .font(.body)
             // 只在「正在整理」那一段掉成 ink2：草稿卡一出来，这句话就是
             // 正在确认的东西，得和卡片里的值一样深。
             .foregroundStyle(busy ? PaceColor.ink2 : PaceColor.ink)
@@ -232,28 +238,32 @@ struct AddView: View {
             .submitLabel(submitKey)
             .onSubmit { Task { await parse() } }
             .disabled(busy || sentenceDraft != nil)
-            .frame(height: 44)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .paceCardFill(20)
-            .accessibilityLabel(Text(Copy.Sentence.fieldA11y))
+        }
+        // 卡高 = 字高 + 上下内距，不写死：写死 44 之后字一放大就切在框里。
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 44)
+        .padding(.horizontal, 18)
+        .pacePadding(10, .vertical)
+        .paceCardFill(20)
+        .accessibilityLabel(Text(Copy.Sentence.fieldA11y))
     }
 
     /// 例句只在输入框空着、还没有草稿时出现。
+    /// 三颗固定：放得下就一行，放不下换行——它在输入卡下面，长高只往下长，输入框不动。
     private var exampleRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(Copy.Ai.Input.examples.prefix(4)), id: \.self) { example in
-                    Button {
-                        sentenceText = example
-                        inputFocused = true
-                    } label: {
-                        Text(example).font(.system(size: 13))
-                    }
-                    .buttonStyle(PillChipStyle())
+        PaceWrap(spacing: 8, lineSpacing: 8) {
+            ForEach(Array(Copy.Ai.Input.examples.prefix(4)), id: \.self) { example in
+                Button {
+                    sentenceText = example
+                    inputFocused = true
+                } label: {
+                    // 这三颗历史上是 13（自己盖掉了胶囊的 14）。零变化就是零变化，不借接字号顺手对齐。
+                    Text(example).paceFont(13, .medium)
                 }
+                .buttonStyle(PillChipStyle())
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - 一句话：就地确认
@@ -266,10 +276,10 @@ struct AddView: View {
                     // 勾说的是「账已经记上了」，不是「AI 干了点什么」：不上色，
                     // 只有失败才该是这个页面上有颜色的东西。
                     Image(systemName: "checkmark")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(PaceType.sectionTitle)
                         .foregroundStyle(PaceColor.ink)
                     Text(Copy.Ai.Input.confirmed)
-                        .font(.system(size: 15))
+                        .font(PaceType.body)
                         .foregroundStyle(PaceColor.ink)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -298,7 +308,7 @@ struct AddView: View {
                     openReview(draft)
                 } label: {
                     Text(Copy.Ai.Input.editInline)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(PaceType.secondary)
                         .foregroundStyle(PaceColor.ink2)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -313,10 +323,10 @@ struct AddView: View {
     private var inlineFailureCard: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(Copy.Failed.InlineSave.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(PaceType.sectionTitle)
                 .foregroundStyle(PaceColor.ink)
             Text(Copy.Failed.InlineSave.body)
-                .font(.system(size: 13))
+                .font(PaceType.secondary)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -332,11 +342,11 @@ struct AddView: View {
         let copy = failureCopy(failure, isLocal: localFailure)
         return VStack(alignment: .leading, spacing: 0) {
             Text(copy.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(PaceType.sectionTitle)
                 .foregroundStyle(PaceColor.ink)
             Text(copy.body)
-                .font(.system(size: 13))
-                .lineSpacing(3)
+                .font(PaceType.secondary)
+                .paceLineSpacing(3)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 8)
@@ -349,7 +359,7 @@ struct AddView: View {
             .padding(.top, 16)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
+        .pacePadding(20)
         .paceCardFill(18)
     }
 
@@ -573,18 +583,18 @@ struct AddView: View {
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("¥")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(PaceType.screenTitle)
                         .foregroundStyle(PaceColor.ink2)
 
                     TextField("", text: $amountText)
-                        .font(.system(size: 48, weight: .heavy, design: .rounded))
+                        .font(.system(size: displaySize, weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(PaceColor.ink)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.plain)
                         .focused($amountFocused)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
+                        // 不缩字：放不下就换行，字是用户选的。
+                        .minimumScaleFactor(1)
                         .accessibilityLabel(Text(Copy.Add.Section.amount))
                         .onChange(of: amountText) { _, _ in
                             errorText = nil
@@ -593,7 +603,7 @@ struct AddView: View {
 
                 if let amountMessage {
                     Text(amountMessage)
-                        .font(.system(size: 13))
+                        .font(PaceType.secondary)
                         .foregroundStyle(PaceColor.danger)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -605,22 +615,22 @@ struct AddView: View {
         .paceCard()
     }
 
-    /// 四个类型胶囊：大字号或窄屏时横向滚动，不换行。
+    /// 四个类型胶囊：固定四颗，放不下就换行，不横着滚。
+    /// 横着滚在大字号下把「退款」切成一个「退」——切在半颗胶囊上，读到的是坏掉的词。
     private var typeChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(TxnTypes.all, id: \.0) { value, label in
-                    Button {
-                        type = value
-                    } label: {
-                        Text(label)
-                    }
-                    .buttonStyle(PillChipStyle(selected: type == value))
-                    .accessibilityLabel(Text(label))
-                    .accessibilityAddTraits(type == value ? .isSelected : [])
+        PaceWrap(spacing: 8, lineSpacing: 8) {
+            ForEach(TxnTypes.all, id: \.0) { value, label in
+                Button {
+                    type = value
+                } label: {
+                    Text(label)
                 }
+                .buttonStyle(PillChipStyle(selected: type == value))
+                .accessibilityLabel(Text(label))
+                .accessibilityAddTraits(type == value ? .isSelected : [])
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(Copy.Add.typeGroupA11y))
     }
@@ -631,19 +641,18 @@ struct AddView: View {
             VStack(alignment: .leading, spacing: 12) {
                 fieldLabel(Copy.Add.Section.category)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(categoryNames, id: \.self) { name in
-                            Button {
-                                category = name
-                            } label: {
-                                Text(name)
-                            }
-                            .buttonStyle(PillChipStyle(selected: category == name))
-                            .accessibilityAddTraits(category == name ? .isSelected : [])
+                PaceWrap(spacing: 8, lineSpacing: 8) {
+                    ForEach(categoryNames, id: \.self) { name in
+                        Button {
+                            category = name
+                        } label: {
+                            Text(name)
                         }
+                        .buttonStyle(PillChipStyle(selected: category == name))
+                        .accessibilityAddTraits(category == name ? .isSelected : [])
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, PaceSpace.cardPadding)
@@ -662,21 +671,18 @@ struct AddView: View {
     }
 
     private var dateRow: some View {
-        HStack(spacing: 12) {
-            Text(Copy.Draft.Field.date)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(PaceColor.ink)
-
-            Spacer(minLength: 12)
-
-            Text(dateDisplay)
-                .font(.system(size: 15))
-                .foregroundStyle(PaceColor.ink2)
-                .lineLimit(1)
-
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(PaceColor.ink3)
+        // 放得下就一行，放不下就上下两行：字是用户选的，不缩也不截。
+        // 写死 lineLimit(1) 之后，大字号下日期会变成「今天 · 10月2…」——那是把日期截掉了。
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                dateRowLabel
+                Spacer(minLength: 12)
+                dateRowValue
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                dateRowLabel
+                dateRowValue
+            }
         }
         .frame(minHeight: 52)
         // .compact 的 DatePicker 只负责交互，显示用上面那行「今天 · 10月26日」。
@@ -684,18 +690,39 @@ struct AddView: View {
             DatePicker("", selection: dateBinding, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .opacity(0.02)
+                // 0.02 在大字号下仍看得见一层影子；0.001 看不见，但点击照收。
+                .opacity(0.001)
                 .frame(width: 170, height: 44)
+                // 裁掉：大字号下那颗紧凑选择器会画得比 170 宽，0.02 的透明度也看得出影子。
+                .clipped()
                 .accessibilityLabel(Text(Copy.Draft.Field.date))
         }
         .padding(.horizontal, PaceSpace.cardPadding)
         .contentShape(Rectangle())
     }
 
+    private var dateRowLabel: some View {
+        Text(Copy.Draft.Field.date)
+            .font(PaceType.rowTitle)
+            .foregroundStyle(PaceColor.ink)
+    }
+
+    private var dateRowValue: some View {
+        HStack(spacing: 6) {
+            Text(dateDisplay)
+                .font(PaceType.body)
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            Image(systemName: "chevron.up.chevron.down")
+                .paceFont(11, .semibold)
+                .foregroundStyle(PaceColor.ink3)
+        }
+    }
+
     private var accountRow: some View {
         HStack(spacing: 12) {
             Text(Copy.Draft.Field.account)
-                .font(.system(size: 15, weight: .medium))
+                .font(PaceType.rowTitle)
                 .foregroundStyle(PaceColor.ink)
 
             Spacer(minLength: 12)
@@ -724,10 +751,10 @@ struct AddView: View {
                     Text(account.isEmpty ? Copy.Add.accountPlaceholder : account)
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .paceFont(11, .semibold)
                         .foregroundStyle(PaceColor.ink3)
                 }
-                .font(.system(size: 15))
+                .font(PaceType.body)
                 .foregroundStyle(PaceColor.ink2)
             }
         }
@@ -745,11 +772,11 @@ struct AddView: View {
     private var noteCard: some View {
         HStack(spacing: 12) {
             Text(Copy.Add.Section.note)
-                .font(.system(size: 15, weight: .medium))
+                .font(PaceType.rowTitle)
                 .foregroundStyle(PaceColor.ink)
 
             TextField("例如：午饭", text: $note)
-                .font(.system(size: 15))
+                .font(PaceType.body)
                 .foregroundStyle(PaceColor.ink)
                 .submitLabel(.done)
         }
@@ -762,13 +789,13 @@ struct AddView: View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: $countInBudget) {
                 Text("计入每日预算")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(PaceType.rowTitle)
                     .foregroundStyle(PaceColor.ink)
             }
             .tint(PaceColor.accent)
 
             Text("关闭后仍计入总支出统计")
-                .font(.system(size: 13))
+                .font(PaceType.secondary)
                 .foregroundStyle(PaceColor.ink2)
         }
         .paceCard()
@@ -780,7 +807,7 @@ struct AddView: View {
 
             if refundCandidates.isEmpty {
                 Text(Copy.Add.noRefundCandidates)
-                    .font(.system(size: 13))
+                    .font(PaceType.secondary)
                     .foregroundStyle(PaceColor.ink2)
             } else {
                 Menu {
@@ -801,10 +828,10 @@ struct AddView: View {
                             .lineLimit(1)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .paceFont(11, .semibold)
                             .foregroundStyle(PaceColor.ink3)
                     }
-                    .font(.system(size: 15))
+                    .font(PaceType.body)
                     .foregroundStyle(PaceColor.ink2)
                     .frame(minHeight: 32)
                     .contentShape(Rectangle())
@@ -1027,7 +1054,7 @@ struct AddView: View {
 
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(PaceType.caption.weight(.semibold))
             .foregroundStyle(PaceColor.ink2)
     }
 }

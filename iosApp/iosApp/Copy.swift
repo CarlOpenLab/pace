@@ -19,7 +19,7 @@ enum Copy {
             static let placeholder = "早饭 12，地铁 4"
             /// 例句胶囊（点一下填进去）。最多三个，第一个留「昨天午饭 28」：
             /// 本机规则失败卡里就引用了这一句。
-            static let examples = ["昨天午饭 28", "超市 56 微信", "收到稿费 1200"]
+            static let examples = ["昨天午饭 28", "超市 56 微信", "工资 8000"]
             /// 没填 Key 时的状态小字；填了则显示模型名（如 deepseek-chat）。
             static let localRuleStatus = "本机规则"
             static let cancel = "取消"

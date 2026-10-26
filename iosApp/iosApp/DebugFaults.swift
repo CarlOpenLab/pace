@@ -72,7 +72,7 @@ struct DebugFaultBanner: View {
             if faults.armed != .none || faults.fired != nil {
                 // 字是 Camo 定的，别改。后半句必须在：假失败最容易被读成真事故。
                 Text("调试中：失败是故意造的，账本没坏。")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(PaceType.secondary.weight(.medium))
                     .foregroundStyle(PaceColor.danger)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)

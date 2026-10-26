@@ -21,13 +21,12 @@ struct AddModeSwitcher: View {
             segment(.sentence, title: Copy.AddMode.sentence)
             segment(.manual, title: Copy.AddMode.manual)
         }
-        .padding(.horizontal, 3)
-        .frame(height: 44)
-        .background(alignment: .center) {
-            Capsule(style: .continuous)
-                .fill(PaceColor.card2)
-                .frame(height: 34)
+        .padding(3)
+        // 胶囊高度跟着字长：写死 34 之后，字一放大两段就挤成一团。
+        .background {
+            Capsule(style: .continuous).fill(PaceColor.card2)
         }
+        .frame(minHeight: 44)
     }
 
     private func segment(_ value: AddFillMode, title: String) -> some View {
@@ -35,19 +34,18 @@ struct AddModeSwitcher: View {
             mode = value
         } label: {
             Text(title)
-                .font(.system(size: 14, weight: .medium))
+                .paceFont(PaceType.labelBase, .medium)
                 .foregroundStyle(mode == value ? PaceColor.onAccent : PaceColor.ink2)
                 .lineLimit(1)
-                .minimumScaleFactor(0.85)
+                // 不再压字号：minimumScaleFactor(0.85) 就是把用户选的字按回去。
+                .pacePadding(8, .vertical)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(alignment: .center) {
+                .background {
                     if mode == value {
-                        Capsule(style: .continuous)
-                            .fill(PaceColor.accent)
-                            .frame(height: 28)
+                        Capsule(style: .continuous).fill(PaceColor.accent)
                     }
                 }
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -66,7 +64,7 @@ struct SentenceParsingRow: View {
                 .controlSize(.small)
                 .frame(width: 16, height: 16)
             Text(Copy.Sentence.parsing)
-                .font(.system(size: 13))
+                .font(PaceType.secondary)
                 .foregroundStyle(PaceColor.ink2)
             Spacer(minLength: 0)
         }
