@@ -124,6 +124,8 @@ struct DraftReviewView: View {
     }
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// 状态位里两样之间的间隔：跟着字号长（Colo 第十一版：4 点起）。
+    @ScaledMetric private var statusSlotGap: CGFloat = 4
 
     /// 一笔都没有的时候别让人按一个空操作。
     private var canSave: Bool {
@@ -209,12 +211,15 @@ struct DraftReviewView: View {
         VStack(alignment: .leading, spacing: 10) {
             // 卡片头一行三样东西抢地方。默认字号下并排（一个像素都不差）；
             // 大字号下金额单独下一行——它是这一格必须被读准的东西。
+            // 状态和动作都住右上角那个位子（Colo 第十一版）：状态在上、动作在下，
+            // 这样一张卡「怎么了、该按哪儿」扫一遍就够了，不用两个角来回看。
+            // 默认字号并排一行；大字号下状态位掉到标题下面、仍然右对齐，金额再下一行。
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline) {
-                        cardTitle(item)
-                        Spacer(minLength: 8)
-                        typeCapsule(draft: draft)
+                    cardTitle(item)
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        statusSlot(item, draft: draft)
                     }
                     cardAmount(item)
                 }
@@ -222,7 +227,7 @@ struct DraftReviewView: View {
                 HStack(alignment: .firstTextBaseline) {
                     cardTitle(item)
                     Spacer(minLength: 8)
-                    typeCapsule(draft: draft)
+                    statusSlot(item, draft: draft)
                     cardAmount(item)
                 }
             }
@@ -254,21 +259,10 @@ struct DraftReviewView: View {
             if editingId == item.id {
                 editor(draft: draft)
             } else {
-                if typeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            editButton(item)
-                            deleteButton(item)
-                        }
-                        statusPill(missing)
-                    }
-                } else {
-                    HStack(spacing: 8) {
-                        editButton(item)
-                        deleteButton(item)
-                        Spacer()
-                        statusPill(missing)
-                    }
+                HStack(spacing: 8) {
+                    editButton(item)
+                    deleteButton(item)
+                    Spacer()
                 }
             }
         }
@@ -291,6 +285,14 @@ struct DraftReviewView: View {
             .paceFont(13)
             .foregroundStyle(PaceColor.ink2)
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func statusSlot(_ item: DraftItem, draft: Binding<DraftItem>) -> some View {
+        VStack(alignment: .trailing, spacing: statusSlotGap) {
+            statusPill(item.missingFields)
+            typeCapsule(draft: draft)
+        }
     }
 
     @ViewBuilder

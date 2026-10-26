@@ -289,3 +289,74 @@ extension LedgerStore {
         format(minor, currency: currency)
     }
 }
+
+// MARK: - 放得下的金额
+
+/// 一个必须整串读准的数字：跟着系统字号长、封顶 1.5 倍，并且不超过这一行放得下的宽度；
+/// 但也不低于它本来那个字号（Colo/Ato：往下降是为了整串可见，降太狠等于把用户选的字号压回去）。
+///
+/// 和首页那个 hero 量的是同三样：基准宽度、可用宽度、封顶值。
+struct FittedAmountText: View {
+    let text: String
+    var base: CGFloat
+    var weight: Font.Weight = .heavy
+    var design: Font.Design = .rounded
+    var cap: CGFloat = 1.5
+
+    @ScaledMetric private var scaled: CGFloat = 38
+    @State private var available: CGFloat = 0
+    @State private var baseWidth: CGFloat = 0
+
+    init(text: String, base: CGFloat, weight: Font.Weight = .heavy,
+         design: Font.Design = .rounded, cap: CGFloat = 1.5) {
+        self.text = text
+        self.base = base
+        self.weight = weight
+        self.design = design
+        self.cap = cap
+        _scaled = ScaledMetric(wrappedValue: base, relativeTo: .body)
+    }
+
+    private var pointSize: CGFloat {
+        let wanted = min(scaled, base * cap)
+        guard available > 0, baseWidth > 0 else { return wanted }
+        return min(wanted, max(base, base * (available / baseWidth)))
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: pointSize, weight: weight, design: design))
+            .monospacedDigit()
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(alignment: .leading) {
+                Text(text)
+                    .font(.system(size: base, weight: weight, design: design))
+                    .monospacedDigit()
+                    .hidden()
+                    .fixedSize()
+                    .background(
+                        GeometryReader { g in
+                            Color.clear.preference(key: FittedBaseWidthKey.self, value: g.size.width)
+                        }
+                    )
+            }
+            .background(
+                GeometryReader { g in
+                    Color.clear.preference(key: FittedAvailableWidthKey.self, value: g.size.width)
+                }
+            )
+            .onPreferenceChange(FittedBaseWidthKey.self) { baseWidth = $0 }
+            .onPreferenceChange(FittedAvailableWidthKey.self) { available = $0 }
+    }
+}
+
+private struct FittedBaseWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+private struct FittedAvailableWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
