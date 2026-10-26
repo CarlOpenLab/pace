@@ -40,18 +40,24 @@ enum PaceType {
 /// 这一轮的名义是「接系统字号」，不是「顺手调排版」，所以默认尺寸一个像素都不许动。
 struct PaceScaledFont: ViewModifier {
     @ScaledMetric private var size: CGFloat
+    private let base: CGFloat
+    private let cap: CGFloat?
     private let weight: Font.Weight
     private let design: Font.Design
 
     init(_ base: CGFloat, weight: Font.Weight = .regular,
-         design: Font.Design = .default, relativeTo style: Font.TextStyle = .body) {
+         design: Font.Design = .default, relativeTo style: Font.TextStyle = .body,
+         cap: CGFloat? = nil) {
+        self.base = base
+        self.cap = cap
         self.weight = weight
         self.design = design
         _size = ScaledMetric(wrappedValue: base, relativeTo: style)
     }
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: weight, design: design))
+        let value = cap.map { min(size, base * $0) } ?? size
+        return content.font(.system(size: value, weight: weight, design: design))
     }
 }
 
@@ -89,10 +95,13 @@ struct PaceScaledLength: ViewModifier {
 
 extension View {
     /// 基准缩放的字：默认字号下等于 base，大字号跟着系统长。
+    /// 带封顶的版本：金额这类「必须被读准」的字，放大到一定倍数就不再长（Colo：1.6 倍）。
     func paceFont(_ base: CGFloat, _ weight: Font.Weight = .regular,
                   design: Font.Design = .default,
-                  relativeTo style: Font.TextStyle = .body) -> some View {
-        modifier(PaceScaledFont(base, weight: weight, design: design, relativeTo: style))
+                  relativeTo style: Font.TextStyle = .body,
+                  cap: CGFloat? = nil) -> some View {
+        modifier(PaceScaledFont(base, weight: weight, design: design,
+                                relativeTo: style, cap: cap))
     }
 
     /// 跟着字号长、封顶 1.6 倍的内距。
@@ -104,4 +113,20 @@ extension View {
     func paceLineSpacing(_ base: CGFloat) -> some View {
         modifier(PaceScaledLength(base, isPadding: false))
     }
+}
+
+/// 量宽用的偏好键：卡片内容宽、金额并排所需的宽。
+struct AmountCardWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+struct AmountRulerWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+struct AmountNumberWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

@@ -147,10 +147,18 @@ struct SettingsView: View {
                     .font(.system(size: 15))
                     .foregroundStyle(PaceColor.ink)
                     .overlay {
+                        // 背后的日期选择器只用来接住点击，不能自己露字。
+                        // 以前给它 0.02 透明度：字一大，选择器自己那串「2026 年 10 月 26 日」
+                        // 就超出这一行的框，带着那点透明度浮在界面上。现在两件事都做：
+                        // 完全透明，并且锁在这行的框里不外溢。
                         DatePicker("", selection: dateBinding, displayedComponents: .date)
                             .labelsHidden()
                             .environment(\.locale, Locale(identifier: "zh_CN"))
-                            .opacity(0.02)
+                            .opacity(0)
+                            .accessibilityHidden(true)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                            .contentShape(Rectangle())
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))

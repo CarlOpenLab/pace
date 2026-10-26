@@ -144,6 +144,22 @@ struct RootView: View {
         #if DEBUG
         // 上膛了就挂一条，免得拿正常路径当失败路径验。
         .safeAreaInset(edge: .top, spacing: 0) { DebugFaultBanner() }
+        // 启动参数 `-uiFaultCard <名字>`：直接把「记一笔」连同一张失败卡摆出来。
+        // 验收拍的是「标题 + 正文第一句 + 两颗按钮在同一张图里」，不该靠点一串坐标才拍得到。
+        .task {
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-uiTab"), i + 1 < args.count {
+                switch args[i + 1] {
+                case "settings": state.tab = .settings
+                case "bills": state.tab = .bills
+                case "stats": state.tab = .stats
+                default: state.tab = .home
+                }
+            }
+            if args.contains("-uiFaultCard") || args.contains("-uiAmount") {
+                state.showAdd = true
+            }
+        }
         #endif
     }
 }

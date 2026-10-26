@@ -42,7 +42,6 @@ struct AddView: View {
     @State private var customAccountDraft = ""
 
     // 一句话
-    @ScaledMetric(relativeTo: .largeTitle) private var displaySize: CGFloat = 48
     @State private var mode: AddFillMode
     @State private var sentenceText = ""
     @State private var busy = false
@@ -58,6 +57,10 @@ struct AddView: View {
     @State private var inlineSaveFailed = false
     /// 这张草稿已经灌进手动表单一次；再切回来不重复灌，免得覆盖用户改过的值。
     @State private var pumpedDraftId: String?
+
+    /// 金额那一行：卡片内容宽、并排所需的宽。
+    @State private var cardContentWidth: CGFloat = 0
+    @State private var amountRowRulerWidth: CGFloat = 0
 
     // 保存确认（手动和就确认共用一张）
     @State private var duplicateNotice = false
@@ -92,6 +95,14 @@ struct AddView: View {
         _countInBudget = State(initialValue: existing?.countInBudget ?? true)
         _refundOfId = State(initialValue: existing?.refundOfId)
 
+        #if DEBUG
+        // `-uiAmount 1280.50`：直接进手动页并填好金额，验收「金额整串可见」不用手打。
+        if txnId == nil, prefill == nil, let amount = Self.debugAmountArg {
+            _mode = State(initialValue: .manual)
+            _amountText = State(initialValue: amount)
+        }
+        #endif
+
         self.categories = LedgerStore.shared.api.categories().sorted { a, b in
             if a.usageCount != b.usageCount { return a.usageCount > b.usageCount }
             return a.sortOrder < b.sortOrder
@@ -108,17 +119,29 @@ struct AddView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: PaceSpace.cardGap) {
-                    if showsSentence {
-                        sentenceContent
-                    } else {
-                        manualContent
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: PaceSpace.cardGap) {
+                        if showsSentence {
+                            sentenceContent
+                        } else {
+                            manualContent
+                        }
                     }
+                    .padding(.horizontal, PaceSpace.screen)
+                    .padding(.top, 8)
+                    .padding(.bottom, 32)
                 }
-                .padding(.horizontal, PaceSpace.screen)
-                .padding(.top, 8)
-                .padding(.bottom, 32)
+                // 失败卡一出来，就把卡的顶滚进视野。
+                // 以前不滚：键盘弹起来把输入框顶到可见处，偏移留在那儿；卡比输入框高得多，
+                // 长出来的部分往上顶，标题和正文第一句就钻进切换器底下那条不透明底色里。
+                // 用户看到的第一眼是一张没有标题、正文从半句开始的卡——而这张卡的全部作用
+                // 就是让他看懂出了什么事。字没有上限，所以不能靠在卡片高度上找数字解决，
+                // 只能让整页把它带进视野。
+                .onChange(of: failure != nil) { _, hasFailure in
+                    guard hasFailure else { return }
+                    scrollToFailure(proxy)
+                }
             }
             .scrollDismissesKeyboard(.interactively)
             .background(PaceColor.canvas.ignoresSafeArea())
@@ -175,7 +198,24 @@ struct AddView: View {
                 .presentationDetents([.large])
             }
             .onAppear {
+                #if DEBUG
+                // 只在调试包里：用启动参数把某张失败卡直接摆出来，不用点进设置造故障。
+                // 验收要的是「标题、正文第一句、两颗按钮在同一张图里」，这个入口让那张图
+                // 在任何字号下都能一次拍到，也顺便复现「键盘滚过之后卡长出来」那条路径。
+                if let preview = Self.debugPreviewFailure {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        localFailure = preview.isLocalRule
+                        inputFocused = false   // 真实路径里拆句时键盘也会退下去
+                        failure = preview.failure
+                    }
+                }
+                #endif
                 // sheet 的入场动画结束后再聚焦，否则 keyboard 有可能不弹。
+                // 调试入口摆卡时先不聚焦：键盘会把两颗按钮挤出画面，而这一屏的验收
+                // 要的是标题、正文第一句、两颗按钮同时在一张图里。
+                #if DEBUG
+                if Self.debugPreviewFailure != nil { return }
+                #endif
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                     if showsSentence {
                         inputFocused = true
@@ -200,6 +240,7 @@ struct AddView: View {
         }
         if let failure {
             failureCard(failure)
+                .id(Self.failureAnchor)
         }
         if let draft = sentenceDraft {
             inlineBlock(draft)
@@ -341,6 +382,56 @@ struct AddView: View {
     }
 
     // MARK: - 一句话：失败
+
+    #if DEBUG
+    /// `-uiFaultCard offline|timeout|keyRejected|model|localRule`
+    fileprivate static var debugPreviewFailure: DebugPreviewFailure? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-uiFaultCard"), i + 1 < args.count else { return nil }
+        switch args[i + 1] {
+        case "offline": return DebugPreviewFailure(failure: .offline, isLocalRule: false)
+        case "timeout": return DebugPreviewFailure(failure: .timeout, isLocalRule: false)
+        case "keyRejected": return DebugPreviewFailure(failure: .keyRejected, isLocalRule: false)
+        case "model": return DebugPreviewFailure(failure: .unreadable, isLocalRule: false)
+        case "localRule": return .localRule
+        default: return nil
+        }
+    }
+
+    /// 本机规则那一路没有自己的 AiFailure：它用 `localFailure` 这个开关换文案。
+    fileprivate struct DebugPreviewFailure {
+        let failure: AiFailure
+        let isLocalRule: Bool
+        static let localRule = DebugPreviewFailure(failure: .unreadable, isLocalRule: true)
+    }
+    #endif
+
+    #if DEBUG
+    fileprivate static var debugAmountArg: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-uiAmount"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+    #endif
+
+    /// 并排要的宽超过卡片内容宽，就把「¥」让到数字上面去。
+    private var stacksCurrencyAboveAmount: Bool {
+        guard cardContentWidth > 0, amountRowRulerWidth > 0 else { return false }
+        return amountRowRulerWidth > cardContentWidth
+    }
+
+    private static let failureAnchor = "add.failure"
+
+    /// 滚两次：第一次在状态刚变、键盘还在往下退的时候，第二次等布局落定。
+    /// 只滚一次会算在键盘的临时高度上，落下来的位置差一截。
+    private func scrollToFailure(_ proxy: ScrollViewProxy) {
+        proxy.scrollTo(Self.failureAnchor, anchor: .top)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo(Self.failureAnchor, anchor: .top)
+            }
+        }
+    }
 
     private func failureCard(_ failure: AiFailure) -> some View {
         let copy = failureCopy(failure, isLocal: localFailure)
@@ -585,24 +676,26 @@ struct AddView: View {
             VStack(alignment: .leading, spacing: 4) {
                 fieldLabel(Copy.Add.Section.amount)
 
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("¥")
-                        .font(PaceType.screenTitle)
-                        .foregroundStyle(PaceColor.ink2)
-
-                    TextField("", text: $amountText)
-                        .font(.system(size: displaySize, weight: .heavy, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(PaceColor.ink)
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(.plain)
-                        .focused($amountFocused)
-                        // 不缩字：放不下就换行，字是用户选的。
-                        .minimumScaleFactor(1)
-                        .accessibilityLabel(Text(Copy.Add.Section.amount))
-                        .onChange(of: amountText) { _, _ in
-                            errorText = nil
+                // 并排放不下的时候，「¥」让到数字上面去，数字自己占一整行。
+                // 最大档实测：卡片内容宽 322，并排时「¥」加间距吃掉 40，留给数字的只有 282；
+                // 「1280.50」在这个字号下要 312，于是框里显示成「1280…」——省略号，
+                // 正好切在用户要核对的那个数上。缩字不行（字是用户选的），
+                // 那就换布局：Camo 的规矩是宁可换行，不许缩字也不许省略。
+                Group {
+                    if stacksCurrencyAboveAmount {
+                        VStack(alignment: .leading, spacing: 0) {
+                            currencyGlyph
+                            // 系统输入框自己左右各留约 8 点内距。金额要占满整行时把它收回来，
+                            // 否则字往右缩 8 点，宽出来的那点正好又不够七位数字用。
+                            amountField
+                                .padding(.horizontal, -Self.textFieldInset)
                         }
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            currencyGlyph
+                            amountField
+                        }
+                    }
                 }
 
                 if let amountMessage {
@@ -612,11 +705,72 @@ struct AddView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .background(
+                GeometryReader { g in
+                    Color.clear.preference(key: AmountCardWidthKey.self, value: g.size.width)
+                }
+            )
 
             typeChips
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .paceCard()
+        // 量两样东西：卡片内容有多宽、并排那一行需要多宽。都在背景里量，不占版面。
+        .background(alignment: .topLeading) { amountRuler }
+        .onPreferenceChange(AmountCardWidthKey.self) { cardContentWidth = $0 }
+        .onPreferenceChange(AmountRulerWidthKey.self) { amountRowRulerWidth = $0 }
+    }
+
+    /// 系统 TextField 的内距，收回来时用。
+    private static let textFieldInset: CGFloat = 8
+
+    private var currencyGlyph: some View {
+        Text("¥")
+            .font(PaceType.screenTitle)
+            .foregroundStyle(PaceColor.ink2)
+    }
+
+    private var amountField: some View {
+        TextField("", text: $amountText)
+            // 金额跟着字长，封顶 1.5 倍（48 → 72）。上限不是拍的：并排的宽度放不下时
+            // 「¥」已经让到数字上面，数字能用的宽度约 307 点；「1280.50」在这个字体下
+            // 一点字号约 4.1 点宽，307 ÷ 4.1 ≈ 75——1.6 倍（77）差 8 点，1.5 倍（72）
+            // 还余 12 点。再大的话七位数字又会变成「1280…」，省略号正好切在要核对的地方。
+            .paceFont(48, .heavy, design: .rounded, relativeTo: .largeTitle, cap: 1.5)
+            .monospacedDigit()
+            .foregroundStyle(PaceColor.ink)
+            .keyboardType(.decimalPad)
+            .textFieldStyle(.plain)
+            .focused($amountFocused)
+            // 不缩字：放不下就换行，字是用户选的。
+            .minimumScaleFactor(1)
+            .accessibilityLabel(Text(Copy.Add.Section.amount))
+            .onChange(of: amountText) { _, _ in
+                errorText = nil
+            }
+    }
+
+    /// 尺子：拿「¥ + 0000.00」量并排要多少宽。
+    /// 用固定的六位小数，不用当前输入——不然用户刚打到第四位，版式就翻一次。
+    private var amountRuler: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("¥").font(PaceType.screenTitle)
+            Text("0000.00")
+                .paceFont(48, .heavy, design: .rounded, relativeTo: .largeTitle, cap: 1.5)
+                .monospacedDigit()
+                .background(
+                    GeometryReader { g in
+                        Color.clear.preference(key: AmountNumberWidthKey.self, value: g.size.width)
+                    }
+                )
+        }
+        .hidden()
+        .fixedSize()
+        .background(
+            GeometryReader { g in
+                Color.clear.preference(key: AmountRulerWidthKey.self, value: g.size.width)
+            }
+        )
     }
 
     /// 四个类型胶囊：固定四颗，放不下就换行，不横着滚。
