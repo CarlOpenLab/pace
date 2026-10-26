@@ -159,7 +159,32 @@ struct RootView: View {
             if args.contains("-uiFaultCard") || args.contains("-uiAmount") {
                 state.showAdd = true
             }
+            // 启动参数 `-uiDrafts`：草稿确认那页只能靠一次模型解析才到得了，
+            // 验收不该依赖网络。三张：填好的、缺金额的、缺类型的。
+            if args.contains("-uiDrafts") {
+                state.openDrafts(Self.debugDrafts)
+            }
         }
         #endif
     }
+
+    #if DEBUG
+    /// 草稿确认那页只能靠一次模型解析才到得了，验收不该依赖网络。
+    private static var debugDrafts: [DraftItem] {
+        let today = LedgerStore.shared.todayIso
+        func draft(_ id: String, _ type: String, _ amountText: String, _ minor: Int64,
+                   _ category: String, _ note: String,
+                   _ missing: [String] = []) -> DraftItem {
+            DraftItem(id: id, type: type, amountText: amountText, amountMinor: minor,
+                      currency: "CNY", dateText: "", localDate: today,
+                      category: category, note: note, account: "现金",
+                      countInBudget: true, missingFields: missing)
+        }
+        return [
+            draft("d1", TxnTypes.expense, "28.00", 2800, "餐饮", "午饭"),
+            draft("d2", TxnTypes.expense, "", 0, "交通", "打车", [DraftMissing.amount]),
+            draft("d3", "", "18.00", 1800, "餐饮", "咖啡", [DraftMissing.type]),
+        ]
+    }
+    #endif
 }

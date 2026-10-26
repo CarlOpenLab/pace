@@ -67,7 +67,7 @@ struct DraftReviewView: View {
                         saveAll()
                     } label: {
                         Text(saveTitle)
-                            .font(.system(size: 16, weight: .semibold))
+                            .paceFont(16, .semibold)
                             .foregroundStyle(canSave ? PaceColor.ink : PaceColor.ink2)
                     }
                     .disabled(!canSave)
@@ -77,7 +77,7 @@ struct DraftReviewView: View {
                 // 没有草稿时页脚也一样让开：空卡自己已经说了账本没变。
                 if !drafts.isEmpty {
                     Text(Copy.Draft.footer)
-                        .font(.system(size: 12))
+                        .paceFont(12)
                         .foregroundStyle(PaceColor.ink2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, PaceSpace.screen)
@@ -88,7 +88,7 @@ struct DraftReviewView: View {
             .overlay(alignment: .top) {
                 if let toast {
                     Text(toast)
-                        .font(.system(size: 14, weight: .semibold))
+                        .paceFont(14, .semibold)
                         .foregroundStyle(PaceColor.ink)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -123,6 +123,8 @@ struct DraftReviewView: View {
         }
     }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     /// 一笔都没有的时候别让人按一个空操作。
     private var canSave: Bool {
         !drafts.isEmpty && missingCount == 0 && !saving
@@ -137,10 +139,10 @@ struct DraftReviewView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(Copy.Draft.emptyTitle)
-                .font(.system(size: 15, weight: .semibold))
+                .paceFont(15, .semibold)
                 .foregroundStyle(PaceColor.ink)
             Text(Copy.Draft.emptySubtitle)
-                .font(.system(size: 13))
+                .paceFont(13)
                 .foregroundStyle(PaceColor.ink2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -153,10 +155,10 @@ struct DraftReviewView: View {
     private func failureCard(_ body: String) -> some View {
         VStack(alignment: .leading, spacing: PaceSpace.inner) {
             Text(Copy.Failed.DraftSave.title)
-                .font(.system(size: 15, weight: .semibold))
+                .paceFont(15, .semibold)
                 .foregroundStyle(PaceColor.ink)
             Text(body)
-                .font(.system(size: 13))
+                .paceFont(13)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             Button(Copy.Failed.retry) { saveAll() }
@@ -172,18 +174,24 @@ struct DraftReviewView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(Copy.Draft.headerLeft)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(PaceColor.ink)
-                Spacer()
-                Text(Copy.Draft.headerRight)
-                    .font(.system(size: 13))
-                    .foregroundStyle(PaceColor.ink2)
+            // 两句说明：默认字号并排（和以前一个像素都不差）；大字号下上下两行，
+            // 不挤成「确认后才／进账本」那种一页里最难看的样子。
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    headerLeftText
+                    headerRightText
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    headerLeftText
+                    Spacer()
+                    headerRightText
+                }
             }
             if missingCount > 0 {
                 Text(Copy.Draft.needsSupplementNote(count: missingCount, field: supplementField))
-                    .font(.system(size: 13))
+                    .paceFont(13)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(PaceColor.ink2)
             }
         }
@@ -199,45 +207,67 @@ struct DraftReviewView: View {
         let missing = item.missingFields
 
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(item.note.isEmpty ? item.category : item.note)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(PaceColor.ink)
-                Spacer(minLength: 8)
-                typeCapsule(draft: draft)
-                if item.amountMinor > 0 {
-                    Text(LedgerStore.shared.format(item.amountMinor, currency: item.currency))
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(PaceColor.ink)
-                } else {
-                    Text(Copy.Draft.emptyAmount)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(PaceColor.ink3)
+            // 卡片头一行三样东西抢地方。默认字号下并排（一个像素都不差）；
+            // 大字号下金额单独下一行——它是这一格必须被读准的东西。
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
+                        cardTitle(item)
+                        Spacer(minLength: 8)
+                        typeCapsule(draft: draft)
+                    }
+                    cardAmount(item)
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    cardTitle(item)
+                    Spacer(minLength: 8)
+                    typeCapsule(draft: draft)
+                    cardAmount(item)
                 }
             }
 
-            Text(metaLine(item))
-                .font(.system(size: 13))
-                .foregroundStyle(PaceColor.ink2)
+            // 分类、日期、账户三样用「 · 」连起来。默认字号并成一串（和以前一样）；
+            // 大字号下一行一样、不带间隔点——换行时把「·」甩到行首是最难看的。
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(metaParts(item), id: \.self) { part in
+                        Text(part)
+                            .paceFont(13)
+                            .foregroundStyle(PaceColor.ink2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            } else {
+                Text(metaLine(item))
+                    .paceFont(13)
+                    .foregroundStyle(PaceColor.ink2)
+            }
 
             if item.amountMinor <= 0 {
                 Text(Copy.Draft.noAmountHint)
-                    .font(.system(size: 12))
+                    .paceFont(12)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(PaceColor.ink2)
             }
 
             if editingId == item.id {
                 editor(draft: draft)
             } else {
-                HStack(spacing: 8) {
-                    Button(Copy.Ai.Input.editInline) { editingId = item.id }
-                        .buttonStyle(GlassSecondaryStyle())
-                    Button(Copy.Draft.deleteAction) { remove(item.id) }
-                        .buttonStyle(GlassSecondaryStyle(tint: PaceColor.danger))
-                    Spacer()
-                    if let marker = missingMarker(missing) {
-                        StatusPill(text: marker, kind: .neutral)
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            editButton(item)
+                            deleteButton(item)
+                        }
+                        statusPill(missing)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        editButton(item)
+                        deleteButton(item)
+                        Spacer()
+                        statusPill(missing)
                     }
                 }
             }
@@ -245,6 +275,65 @@ struct DraftReviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .paceCardFill(18)
+    }
+
+    @ViewBuilder
+    private var headerLeftText: some View {
+        Text(Copy.Draft.headerLeft)
+            .paceFont(13, .semibold)
+            .foregroundStyle(PaceColor.ink)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var headerRightText: some View {
+        Text(Copy.Draft.headerRight)
+            .paceFont(13)
+            .foregroundStyle(PaceColor.ink2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func editButton(_ item: DraftItem) -> some View {
+        Button(Copy.Ai.Input.editInline) { editingId = item.id }
+            .buttonStyle(GlassSecondaryStyle())
+    }
+
+    @ViewBuilder
+    private func deleteButton(_ item: DraftItem) -> some View {
+        Button(Copy.Draft.deleteAction) { remove(item.id) }
+            .buttonStyle(GlassSecondaryStyle(tint: PaceColor.danger))
+    }
+
+    @ViewBuilder
+    private func statusPill(_ missing: [String]) -> some View {
+        if let marker = missingMarker(missing) {
+            StatusPill(text: marker, kind: .neutral)
+        }
+    }
+
+    @ViewBuilder
+    private func cardTitle(_ item: DraftItem) -> some View {
+        Text(item.note.isEmpty ? item.category : item.note)
+            .paceFont(16, .semibold)
+            .foregroundStyle(PaceColor.ink)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func cardAmount(_ item: DraftItem) -> some View {
+        if item.amountMinor > 0 {
+            Text(LedgerStore.shared.format(item.amountMinor, currency: item.currency))
+                .paceFont(16, .semibold, design: .rounded)
+                .monospacedDigit()
+                .foregroundStyle(PaceColor.ink)
+                .lineLimit(1)
+        } else {
+            Text(Copy.Draft.emptyAmount)
+                .paceFont(16, .semibold, design: .rounded)
+                .foregroundStyle(PaceColor.ink3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// 类型做成卡片头部那颗小胶囊：跟 QuickAddView 右上角那颗一套值，只是它能点。
@@ -282,7 +371,7 @@ struct DraftReviewView: View {
             }
         } label: {
             Text(missingType ? Copy.Draft.Missing.typeCapsule : typeLabel(item.type))
-                .font(.system(size: 11, weight: .medium))
+                .paceFont(11, .medium)
                 .foregroundStyle(missingType ? PaceColor.accent : PaceColor.ink2)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
@@ -306,6 +395,15 @@ struct DraftReviewView: View {
 
     private func typeLabel(_ type: String) -> String {
         TxnTypes.all.first(where: { $0.0 == type })?.1 ?? type
+    }
+
+    private func metaParts(_ item: DraftItem) -> [String] {
+        var parts = [item.category]
+        if !item.localDate.isEmpty {
+            parts.append(item.dateText.isEmpty ? DraftDate.display(item.localDate) : "\(item.dateText) \(DraftDate.display(item.localDate))")
+        }
+        if !item.account.isEmpty { parts.append(item.account) }
+        return parts
     }
 
     private func metaLine(_ item: DraftItem) -> String {
@@ -336,24 +434,24 @@ struct DraftReviewView: View {
         let item = draft.wrappedValue
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(Copy.Draft.Field.amount).font(.system(size: 12)).foregroundStyle(PaceColor.ink2)
+                Text(Copy.Draft.Field.amount).paceFont(12).foregroundStyle(PaceColor.ink2)
                 TextField("0.00", text: draft.amountText)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
-                    .font(.system(size: 15, design: .rounded))
+                    .paceFont(15, design: .rounded, relativeTo: .subheadline)
                     .onChange(of: draft.wrappedValue.amountText) { _, newValue in
                         draft.wrappedValue.updateAmount(newValue, todayIso: LedgerStore.shared.todayIso)
                     }
             }
             HStack(spacing: 8) {
-                Text(Copy.Draft.Field.date).font(.system(size: 12)).foregroundStyle(PaceColor.ink2)
+                Text(Copy.Draft.Field.date).paceFont(12).foregroundStyle(PaceColor.ink2)
                 DatePicker("", selection: dateBinding(draft), displayedComponents: .date)
                     .labelsHidden()
                     .environment(\.locale, Locale(identifier: "zh_CN"))
                 Spacer()
             }
             HStack(spacing: 8) {
-                Text(Copy.Draft.Field.category).font(.system(size: 12)).foregroundStyle(PaceColor.ink2)
+                Text(Copy.Draft.Field.category).paceFont(12).foregroundStyle(PaceColor.ink2)
                 Menu(item.category) {
                     ForEach(categories, id: \.self) { name in
                         Button(name) {
@@ -362,11 +460,11 @@ struct DraftReviewView: View {
                         }
                     }
                 }
-                .font(.system(size: 15))
+                .paceFont(15)
                 Spacer()
             }
             TextField(Copy.Draft.Field.note, text: draft.note)
-                .font(.system(size: 15))
+                .paceFont(15)
             Button("改好了") { editingId = nil }
                 .buttonStyle(PillChipStyle(selected: true))
         }
