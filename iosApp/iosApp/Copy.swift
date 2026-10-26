@@ -515,12 +515,43 @@ enum Copy {
 
         /// 7.27–7.30 恢复与导入。
         enum Import {
-            static func previewDuplicates(count: Int) -> String {
-                "其中 \(count) 笔现在账本里已经有了"
+            /// 数字只有大于 0 才出现：0 在这句里不带来信息，只带来「我是不是漏了什么」。
+            static func previewDuplicates(count: Int) -> String? {
+                count > 0 ? "其中 \(count) 笔现在账本里已经有了" : nil
             }
             static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。替换：先清空，再写入文件里的内容。"
             static func merged(added: Int, skipped: Int) -> String {
-                "已合并：新增 \(added) 笔，跳过 \(skipped) 笔"
+                var parts: [String] = []
+                if added > 0 { parts.append("新增 \(added) 笔") }
+                if skipped > 0 { parts.append("跳过 \(skipped) 笔") }
+                return "已合并：" + (parts.isEmpty ? "没有新的账单" : parts.joined(separator: "，"))
+            }
+
+            /// 恢复预览这一屏的字。以前七句写死在 View 里，改一处漏三处。
+            enum Preview {
+                static let title = "恢复预览"
+                static func bills(count: Int, first: String?, last: String?) -> String {
+                    if let first, let last, !first.isEmpty, !last.isEmpty {
+                        return "账单 \(count) 笔（\(first) ~ \(last)）"
+                    }
+                    return "账单 \(count) 笔"
+                }
+                static func groups(categories: Int, budgets: Int) -> String {
+                    "分类 \(categories) · 预算规则 \(budgets)"
+                }
+                static let merge = "合并到现有账本"
+                static let replace = "替换当前账本…"
+                /// 校验没通过那张卡：标题只说哪件事没成，「现在什么状态」进正文。
+                static let invalidTitle = "这份文件没通过校验"
+                static let invalidBody = "什么都没写进账本，账本还是原来的样子。"
+                static let retry = "换一份文件再试"
+            }
+
+            /// 导入结果。
+            enum Result {
+                static func replaced(count: Int) -> String {
+                    "已替换：写入 \(count) 笔"
+                }
             }
 
             /// 7.30 导入失败：错误码只进日志，界面统一冠以前缀。
@@ -531,8 +562,9 @@ enum Copy {
                 static let noteTooLong = "有一笔备注超过 500 字"
                 static let unknown = "文件读不出来，可能不是 Pace 导出的"
 
+                /// 三拍：没成 → 现在什么状态 → 下一步做什么。
                 static func failed(reason: String) -> String {
-                    "没有导入，现在的账本没变：\(reason)"
+                    "没有导入，现在的账本没变：\(reason)。换一份 Pace 导出的文件再试。"
                 }
             }
         }

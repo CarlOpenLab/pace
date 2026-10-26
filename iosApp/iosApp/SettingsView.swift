@@ -19,6 +19,10 @@ struct SettingsView: View {
     @State private var failedExport: (() -> Void)?
     @State private var exportFailed = false
     @State private var showImporter = false
+    /// 校验没通过那张卡里的「换一份文件再试」：直接从卡上开文件选择。
+    @State private var retryImporter = false
+    /// 重选之后读不出来的原因；nil 表示用 preview 自己带的原因。
+    @State private var overriddenReasons: [String]?
     @State private var showSavedBadge = false
     @State private var showDatePicker = false
 
@@ -89,14 +93,10 @@ struct SettingsView: View {
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .data]) { result in
                 switch result {
                 case .success(let url):
-                    guard url.startAccessingSecurityScopedResource(),
-                          let data = try? Data(contentsOf: url),
-                          let text = String(data: data, encoding: .utf8) else {
-                        url.stopAccessingSecurityScopedResource()
+                    guard let text = readImportedText(url) else {
                         importMessage = Copy.Settings.Import.Issue.unknown
                         return
                     }
-                    url.stopAccessingSecurityScopedResource()
                     importJsonText = text
                     importPreview = LedgerStore.shared.api.previewImport(jsonText: text)
                 case .failure:
@@ -443,29 +443,75 @@ struct SettingsView: View {
                 if let preview = importPreview {
                     if preview.valid {
                         List {
-                            Text("账单 \(preview.transactionCount) 笔（\(preview.firstLocalDate ?? "无") ~ \(preview.lastLocalDate ?? "无")）")
-                            Text("分类 \(preview.categoryCount) · 预算规则 \(preview.budgetRuleCount)")
-                            Text(Copy.Settings.Import.previewDuplicates(count: Int(preview.duplicateCount)))
+                            Text(Copy.Settings.Import.Preview.bills(
+                                count: Int(preview.transactionCount),
+                                first: preview.firstLocalDate,
+                                last: preview.lastLocalDate
+                            ))
+                            Text(Copy.Settings.Import.Preview.groups(
+                                categories: Int(preview.categoryCount),
+                                budgets: Int(preview.budgetRuleCount)
+                            ))
+                            // 零不出现：一句里没有「0 笔」的位置它就整行不在。
+                            if let duplicates = Copy.Settings.Import.previewDuplicates(count: Int(preview.duplicateCount)) {
+                                Text(duplicates)
+                            }
                             Section {
-                                Button("合并到现有账本") { applyImport(mode: "MERGE") }
-                                Button("替换当前账本…", role: .destructive) { confirmReplace = true }
+                                Button(Copy.Settings.Import.Preview.merge) { applyImport(mode: "MERGE") }
+                                Button(Copy.Settings.Import.Preview.replace, role: .destructive) { confirmReplace = true }
                             } footer: {
                                 Text(Copy.Settings.Import.mergeOrReplaceNote)
                             }
                         }
                     } else {
-                        List {
-                            Section("文件校验未通过，不会写入任何数据") {
-                                // 错误码只进日志：这一行原来直接把 IMPORT_MALFORMED_JSON
-                                // 这类码印在屏幕上，人看到一个英文码不知道该怎么办。
-                                Text(importProblem(preview.errors))
-                                    .font(.footnote)
+                        // 校验没通过：和别处的失败卡同一个结构——标题说哪件事没成、
+                        // 正文说现在什么状态、下面是全部原因、最后一颗「换一份文件再试」。
+                        // 一次只报第一个原因等于让人按次数把错走完，所以全列出来（最多五行）。
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: PaceSpace.inner) {
+                                Text(Copy.Settings.Import.Preview.invalidTitle)
+                                    .paceFont(15, .semibold)
+                                    .foregroundStyle(PaceColor.ink)
+                                Text(Copy.Settings.Import.Preview.invalidBody)
+                                    .paceFont(13)
+                                    .foregroundStyle(PaceColor.ink2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Button(Copy.Settings.Import.Preview.retry) { retryImporter = true }
+                                    .buttonStyle(GlassSecondaryStyle())
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(importProblems(overriddenReasons ?? preview.errors), id: \.self) { line in
+                                        Text(line)
+                                            .paceFont(13)
+                                            .foregroundStyle(PaceColor.ink2)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .paceCardFill(18)
+                            .padding(20)
                         }
                     }
                 }
             }
-            .navigationTitle("恢复预览")
+            .fileImporter(isPresented: $retryImporter, allowedContentTypes: [.json, .data]) { result in
+                switch result {
+                case .success(let url):
+                    if let text = readImportedText(url) {
+                        importJsonText = text
+                        importPreview = LedgerStore.shared.api.previewImport(jsonText: text)
+                        overriddenReasons = nil
+                    } else {
+                        // 读不出来：不关这张卡，只把原因换成这一条。
+                        overriddenReasons = []
+                    }
+                case .failure:
+                    // 取消：人只是去找另一份文件，回来还要看原来那份卡在哪儿。
+                    break
+                }
+            }
+            .navigationTitle(Copy.Settings.Import.Preview.title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(Copy.Settings.cancel) {
@@ -477,20 +523,35 @@ struct SettingsView: View {
         }
     }
 
-    /// 导入失败：错误码只写日志，界面上说人话。
-    private func importProblem(_ errors: [String]) -> String {
+    /// 导入失败：错误码只写日志，界面上说人话，而且一次说完。
+    /// 只报第一个的话，人得改一笔、再恢复、再撞下一个，来回好几趟才走完。
+    /// 最多五行——原因一共五种，再多就是撑满一屏而不是说人话。
+    private func importProblems(_ errors: [String]) -> [String] {
         NSLog("[Pace] 导入问题：\(errors.joined(separator: " | "))")
+        var lines: [String] = []
         for raw in errors {
             let code = raw.split(separator: ":").first.map(String.init) ?? raw
+            let line: String
             switch code.trimmingCharacters(in: .whitespaces) {
-            case "INVALID_AMOUNT": return Copy.Settings.Import.Issue.invalidAmount
-            case "INVALID_DATE": return Copy.Settings.Import.Issue.invalidDate
-            case "INVALID_TYPE", "INVALID_CATEGORY": return Copy.Settings.Import.Issue.invalidTypeOrCategory
-            case "NOTE_TOO_LONG": return Copy.Settings.Import.Issue.noteTooLong
+            case "INVALID_AMOUNT": line = Copy.Settings.Import.Issue.invalidAmount
+            case "INVALID_DATE": line = Copy.Settings.Import.Issue.invalidDate
+            case "INVALID_TYPE", "INVALID_CATEGORY": line = Copy.Settings.Import.Issue.invalidTypeOrCategory
+            case "NOTE_TOO_LONG": line = Copy.Settings.Import.Issue.noteTooLong
             default: continue
             }
+            if !lines.contains(line) { lines.append(line) }
+            if lines.count == 5 { break }
         }
-        return Copy.Settings.Import.Issue.unknown
+        return lines.isEmpty ? [Copy.Settings.Import.Issue.unknown] : lines
+    }
+
+    /// 选中的文件读成文本；读不出来返回 nil。
+    private func readImportedText(_ url: URL) -> String? {
+        guard url.startAccessingSecurityScopedResource() else { return nil }
+        defer { url.stopAccessingSecurityScopedResource() }
+        guard let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        return text
     }
 
     private func applyImport(mode: String) {
@@ -498,10 +559,11 @@ struct SettingsView: View {
         let result = LedgerStore.shared.api.applyImport(jsonText: json, mode: mode)
         if result.applied {
             importMessage = mode == "REPLACE"
-                ? "已替换：写入 \(result.insertedCount) 笔"
+                ? Copy.Settings.Import.Result.replaced(count: Int(result.insertedCount))
                 : Copy.Settings.Import.merged(added: Int(result.insertedCount), skipped: Int(result.skippedCount))
         } else {
-            importMessage = Copy.Settings.Import.Issue.failed(reason: importProblem(result.errors))
+            let reasons = importProblems(result.errors).joined(separator: "；")
+            importMessage = Copy.Settings.Import.Issue.failed(reason: reasons)
         }
         importPreview = nil
         importJsonText = nil
