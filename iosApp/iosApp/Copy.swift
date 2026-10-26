@@ -96,6 +96,9 @@ enum Copy {
                 static let clearSearch = "清空搜索"
                 static let noMatch = "没搜到。关掉这一页，用「手填模型名」直接填。"
 
+                /// 手上这份名单是上次读回来的，这次没读上。
+                static let staleList = "这是上次读回来的列表，可能不是最新的。"
+
                 static func stale(_ model: String) -> String {
                     "「\(model)」这次没在列表里。可能换过服务商，或者它已经下线了。还用它也行。"
                 }
@@ -108,6 +111,7 @@ enum Copy {
                     static let server = "那边出了点问题，模型列表没取回来。过一会儿再读一次，或者先手填模型名。"
                     static let noKey = "先填 Key，这里会列出这个 Key 能用的模型。"
                     static let noAddress = "先填接口地址，再读模型列表。"
+                    static let noAddressAndKey = "先填接口地址和 Key。"
                 }
 
                 static let a11yLoading = "正在读取模型列表"

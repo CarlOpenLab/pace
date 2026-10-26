@@ -18,6 +18,8 @@ struct QuickAddSettingsView: View {
     @State private var manualEntry = false
     @State private var fetchingModels = false
     @State private var modelsNotice: ModelNotice?
+    /// 手上这份名单是上一次成功读回来的，这次没刷新成功。
+    @State private var listStale = false
     @State private var pickingModel = false
     @FocusState private var focusedField: EditField?
     private enum EditField: Hashable { case endpoint, key }
@@ -32,9 +34,6 @@ struct QuickAddSettingsView: View {
                     resultLine(testResult)
                 }
                 securityCard
-                if !ai.key.isEmpty {
-                    clearKeyButton
-                }
             }
             .padding(.horizontal, PaceSpace.screen)
             .padding(.vertical, PaceSpace.cardGap)
@@ -186,7 +185,9 @@ struct QuickAddSettingsView: View {
 
             field(
                 label: manualEntry || models.isEmpty ? Copy.Ai.Settings.Model.label : Copy.Ai.Settings.ModelPick.label,
-                note: manualEntry || models.isEmpty ? Copy.Ai.Settings.Model.note : Copy.Ai.Settings.ModelPick.ready
+                note: manualEntry || models.isEmpty
+                    ? Copy.Ai.Settings.Model.note
+                    : (listStale ? Copy.Ai.Settings.ModelPick.staleList : Copy.Ai.Settings.ModelPick.ready)
             ) {
                 if manualEntry || models.isEmpty {
                     TextField(Copy.Ai.Settings.Model.placeholder, text: $ai.model)
@@ -303,9 +304,9 @@ struct QuickAddSettingsView: View {
     /// 读取模型列表：拿现在填的 Key 去服务商读 /models，读回来就变成上面那个下拉。
     private var fetchModelsRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if ai.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                // 还没填 Key 时不放按钮：点了也没东西可读，只留一句空状态。
-                Text(Copy.Ai.Settings.ModelPick.Error.noKey)
+            if let hint = modelListHint {
+                // 缺哪样说哪样；两样都缺就说两样。不放在这儿按了没用的按钮。
+                Text(hint)
                     .font(.system(size: 11))
                     .foregroundStyle(PaceColor.ink2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -320,6 +321,18 @@ struct QuickAddSettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.updatesFrequently)
             }
+        }
+    }
+
+    /// 列表还读不成时，直接说现在缺哪一样。
+    private var modelListHint: String? {
+        let hasAddress = !ai.endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasKey = !ai.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        switch (hasAddress, hasKey) {
+        case (false, false): return Copy.Ai.Settings.ModelPick.Error.noAddressAndKey
+        case (false, true): return Copy.Ai.Settings.ModelPick.Error.noAddress
+        case (true, false): return Copy.Ai.Settings.ModelPick.Error.noKey
+        case (true, true): return nil
         }
     }
 
@@ -374,6 +387,7 @@ struct QuickAddSettingsView: View {
         models = []
         manualEntry = false
         modelsNotice = nil
+        listStale = false
     }
 
     private func reloadAfterEdit() {
@@ -393,20 +407,29 @@ struct QuickAddSettingsView: View {
         case .success(let list):
             models = list
             manualEntry = false
+            listStale = false
             AccessibilityNotification.Announcement(Copy.Ai.Settings.ModelPick.a11yLoaded(list.count)).post()
         case .failure(.noKey):
+           listStale = !models.isEmpty
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.noKey, isWarning: false)
         case .failure(.noAddress):
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.noAddress, isWarning: false)
         case .failure(.keyRejected):
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.keyRejected, isWarning: true)
         case .failure(.noModelList):
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.noModelList, isWarning: false)
         case .failure(.unreachable):
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.unreachable, isWarning: true)
         case .failure(.server):
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.Error.server, isWarning: true)
         case .failure(.empty):
+            listStale = !models.isEmpty
             modelsNotice = .init(Copy.Ai.Settings.ModelPick.empty, isWarning: false)
         }
         fetchingModels = false
@@ -484,16 +507,6 @@ struct QuickAddSettingsView: View {
         .paceCardFill(14, color: PaceColor.card2)
     }
 
-    private var clearKeyButton: some View {
-        Button(role: .destructive) {
-            confirmClearKey = true
-        } label: {
-            Text(Copy.Ai.Test.clearKey)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(PaceColor.danger)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
 
     private func showToast(_ text: String) {
         withAnimation(.easeOut(duration: 0.2)) { toast = text }
