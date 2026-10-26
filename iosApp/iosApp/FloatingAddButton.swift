@@ -4,12 +4,18 @@ import SwiftUI
 /// 今天和账单两屏共用这一份，统计与设置不出现。
 struct FloatingAddButton: View {
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var ai: AiSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let collapsed = state.fabCollapsed
         Button {
-            state.showAdd = true
+            // 外观只有一个版本；开了 AI 时这颗按钮直达一句话输入，关着仍进表单。
+            if ai.usesRemoteModel {
+                state.showQuickAdd = true
+            } else {
+                state.showAdd = true
+            }
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: "plus")
@@ -37,7 +43,8 @@ struct FloatingAddButton: View {
         .offset(y: collapsed && !reduceMotion ? 8 : 0)
         .animation(.easeOut(duration: 0.22), value: collapsed)
         .allowsHitTesting(!collapsed)
-        .accessibilityLabel("记一笔，打开新账单")
+        .accessibilityLabel("记一笔")
+        .accessibilityHint(ai.usesRemoteModel ? "打开一句话记账" : "打开新账单")
         .accessibilityHidden(collapsed)
     }
 }

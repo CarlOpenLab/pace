@@ -40,8 +40,15 @@ final class AiSettings: ObservableObject {
     }
 
     @Published var key: String {
-        didSet { AiKeychain.save(key) }
+        didSet {
+            // 存完读回来对一次：写失败不能让界面装作存上了。
+            AiKeychain.save(key)
+            keyStoreFailed = AiKeychain.read() != key
+        }
     }
+
+    /// 写钥匙串失败时置位，设置页据此说一句，不让用户以为存上了。
+    @Published private(set) var keyStoreFailed = false
 
     private init() {
         enabled = defaults.bool(forKey: Key.enabled)

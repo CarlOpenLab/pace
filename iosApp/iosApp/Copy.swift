@@ -48,6 +48,11 @@ enum Copy {
             static let manual = "改成手动记账"
             static let submit = "整理成草稿"
             static let submitting = "正在整理…"
+            /// 就地确认（docs/DESIGN-quickadd-primary.md §5）
+            static let parsing = "正在拆这一句…"
+            static let confirmInline = "记上"
+            static let editInline = "改一下"
+            static let confirmed = "记上了"
         }
 
         /// 3. 设置里的「AI 一句话记账」。
@@ -58,28 +63,78 @@ enum Copy {
             static let subtitleOn = "开着。你打的那句话会发给你填的服务；账本其他内容不出设备。"
             static let disabledToast = "已关掉，改用本机规则，不出手机。"
 
-            /// 3.2 三项设置：接口地址。
-            enum Endpoint {
-                static let label = "接口地址"
-                static let placeholder = "https://api.deepseek.com/v1/chat/completions"
-                static let note = "按 OpenAI 兼容格式填。DeepSeek、Kimi、智谱、OpenAI 都能直接填。"
+            /// 3.2 服务商预置。名字用各家自己的写法，不翻译。
+            enum Provider {
+                static let label = "服务商"
+                static let note = "换了服务商，Key 要换成那一家发的。"
+                static let custom = "自定义"
             }
 
-            /// 3.2 三项设置：模型名。
+            /// 3.2 接口地址：选「自定义」时才露出来。
+            enum Endpoint {
+                static let label = "接口地址"
+                static let placeholder = "https://api.deepseek.com/v1"
+                static let note = "按 OpenAI 兼容格式填，地址一般写到 /v1 就行。"
+            }
+
+            /// 3.2 手填模型名。
             enum Model {
                 static let label = "模型名"
                 static let placeholder = "deepseek-chat"
                 static let note = "填服务商文档里给的那个名字。"
             }
 
+            /// 3.4 模型下拉：读取模型列表，以及手填兜底。
+            enum ModelPick {
+                static let label = "模型"
+                static let loading = "正在读取模型列表…"
+                static let ready = "这些是这个 Key 能用的模型。选一个就保存。"
+                static let empty = "这个 Key 一个模型都没有。手填一个试试。"
+                static let read = "读取模型列表"
+                static let retry = "重新读取"
+                static let manual = "手动填模型名"
+                static let backToList = "回到列表"
+                static let title = "选择模型"
+                static let search = "搜模型名"
+                static let close = "取消"
+                static let choose = "选择一个"
+                static let clearSearch = "清空搜索"
+                static let noMatch = "没搜到。关掉这一页，用「手填模型名」直接填。"
+
+                /// 手上这份名单是上次读回来的，这次没读上。
+                static let staleList = "这是上次读回来的列表，可能不是最新的。"
+
+                static func stale(_ model: String) -> String {
+                    "「\(model)」这次没在列表里。可能换过服务商，或者它已经下线了。还用它也行。"
+                }
+
+                /// 四种失败态放各自站得住的话；「不列模型」是这家就这样，不当错误。
+                enum Error {
+                    static let keyRejected = "这个服务没认这把 Key。检查一下有没有粘全，或者去服务商后台看看它还能不能用、能不能读模型。"
+                    static let noModelList = "这个服务不提供模型列表。手填一个模型名就行，服务商文档里有。"
+                    static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
+                    static let server = "那边出了点问题，模型列表没取回来。过一会儿再读一次，或者先手填模型名。"
+                    static let noKey = "先填 Key，这里会列出这个 Key 能用的模型。"
+                    static let noAddress = "先填接口地址，再读模型列表。"
+                    static let noAddressAndKey = "先填接口地址和 Key。"
+                }
+
+                static let a11yLoading = "正在读取模型列表"
+
+                static func a11yLoaded(_ count: Int) -> String {
+                    "模型列表回来了，\(count) 个模型"
+                }
+            }
+
             /// 3.2 三项设置：Key。
             enum Key {
                 static let label = "Key"
                 static let placeholder = "sk-…"
-                static let note = "只存在这台手机的钥匙串里，不写进导出文件，不进日志。清空账本不会删它，要删就点下面的「清空 Key」。"
+                static let note = "只存在这台手机的钥匙串里，不写进导出文件，不进日志。清空账本不会删它，要删就点「清空 Key」。"
+                static let storeFailed = "这把 Key 没存进手机。这一页里还能用，但重开 app 就没了，得再粘一次。"
             }
 
-            static let fallbackNote = "没填这三项，就用本机规则整理：断网也能用，说的话不出手机。"
+            static let fallbackNote = "没配好服务，就用本机规则整理：断网也能用，说的话不出手机。"
             static let securityTitle = "Key 在你手机上"
             static let securityNote = "提醒一句：Key 存在你手机上，谁拿到你解锁的手机，就能用掉你的额度。建议单独申请一个 Key，方便随时去服务商后台吊销。"
         }
@@ -91,7 +146,7 @@ enum Copy {
             static let ok = "连上了。"
             static let unreachable = "连不上这个地址。检查一下地址有没有写错，或者是不是没网。"
             static let keyRejected = "Key 没通过。这个服务没认这把 Key，去服务商后台确认一下。"
-            static let incomplete = "先把接口地址、模型名和 Key 都填上。"
+            static let incomplete = "先把地址和 Key 填上，再把模型选上。"
             static let clearKey = "清空 Key"
             static let clearConfirmTitle = "清空 Key？"
             static let clearConfirmBody = "清掉以后就用本机规则拆句子，账本不受影响。"
@@ -292,8 +347,10 @@ enum Copy {
         static let budgetSpentHint = "不算进预算的那几笔，和退款，都不在这里扣。"
         static let todayBillsTitle = "今天"
         static let emptyTitle = "还没有账单"
+        /// 走本机规则时（没配好模型、或开关关着）说「打一句话」。
         static let emptySubtitleNoKey = "点下面的「记一笔」，或者打一句话。"
-        static let emptySubtitleWithKey = "点下面的「记一笔」，或者打一句话。"
+        /// 真正走模型时只说这一种：说一句话就行（Camo 定的词）。
+        static let emptySubtitleWithKey = "点下面的「记一笔」，说一句话就行。"
         static let loading = "加载中…"
     }
 

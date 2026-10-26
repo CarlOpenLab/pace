@@ -138,6 +138,9 @@ struct RootView: View {
         .sheet(isPresented: $state.showAdd) {
             AddView(txnId: nil)
         }
+        .sheet(isPresented: $state.showQuickAdd) {
+            QuickAddView { }
+        }
         .sheet(isPresented: $state.showDrafts) {
             DraftReviewView(drafts: state.pendingDrafts) {
                 state.pendingDrafts = []
