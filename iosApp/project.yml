@@ -32,6 +32,7 @@ targets:
         ENABLE_PREVIEWS: "YES"
         SWIFT_STRICT_CONCURRENCY: minimal
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(PROJECT_DIR)/../shared/build/XCFrameworks/release"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
         OTHER_LDFLAGS: "$(inherited) -ObjC"
     dependencies:
       - framework: ../shared/build/XCFrameworks/release/shared.xcframework

@@ -40,3 +40,6 @@ DerivedData/
 *.ipa
 *.dSYM.zip
 replay_pid*.log
+
+# airbuild (generated output, local build manifest)
+.airbuild/
