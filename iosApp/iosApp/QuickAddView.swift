@@ -92,23 +92,30 @@ struct SentenceDraftCard: View {
     let item: DraftItem
     let onTap: () -> Void
 
+    /// 草稿卡金额：display 那一套——跟着系统字号长、封顶 1.5 倍（34→51）、不低于 34。
+    /// 原来这里带着 minimumScaleFactor(0.6)，等于字一大就把用户选的字号压回去；
+    /// 现在放不下就换行，不许缩。
+    @ScaledMetric(relativeTo: .largeTitle) private var draftAmountScaled: CGFloat = 34
+    /// 字段名的列宽跟着字号长（封顶 1.6 倍），否则大字号下「分类」两个字会被挤成两行。
+    @ScaledMetric(relativeTo: .body) private var fieldLabelWidth: CGFloat = 40
+
+    private var draftAmountSize: CGFloat {
+        min(max(34, draftAmountScaled), 34 * 1.5)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(amountText)
-                    .font(.system(size: 34, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .foregroundStyle(item.type == TxnTypes.refund ? PaceColor.income : PaceColor.ink)
-                Spacer(minLength: 8)
-                // 类型胶囊只报数、不改成菜单：要选转账或退款，出口在草稿确认页的菜单里。
-                Text(typeLabel)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(PaceColor.ink2)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(PaceColor.card2, in: Capsule(style: .continuous))
+            // 金额和类型胶囊：并排放不下时，胶囊整颗落到金额下面，金额自己不被挤窄。
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline) {
+                    amountLabel
+                    Spacer(minLength: 8)
+                    typePill
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    amountLabel
+                    typePill
+                }
             }
             .padding(.bottom, 12)
 
@@ -130,19 +137,37 @@ struct SentenceDraftCard: View {
         .accessibilityValue(Text(accessibilityValue))
     }
 
+    private var amountLabel: some View {
+        Text(amountText)
+            .font(.system(size: draftAmountSize, weight: .heavy, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(item.type == TxnTypes.refund ? PaceColor.income : PaceColor.ink)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // 类型胶囊只报数、不改成菜单：要选转账或退款，出口在草稿确认页的菜单里。
+    private var typePill: some View {
+        Text(typeLabel)
+            .paceFont(11, .medium, relativeTo: .caption2)
+            .foregroundStyle(PaceColor.ink2)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(PaceColor.card2, in: Capsule(style: .continuous))
+    }
+
     private func fieldRow(_ label: String, value: String) -> some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.system(size: 11))
+                .paceFont(11, .regular, relativeTo: .caption2)
                 .foregroundStyle(PaceColor.ink2)
-                .frame(width: 40, alignment: .leading)
+                .frame(width: min(fieldLabelWidth, 40 * 1.6), alignment: .leading)
             Text(value)
-                .font(.system(size: 15))
+                .paceFont(15, .regular, relativeTo: .subheadline)
                 .foregroundStyle(PaceColor.ink)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .frame(height: 32)
+        .frame(minHeight: 32)
     }
 
     private var amountText: String {

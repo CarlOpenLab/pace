@@ -197,6 +197,10 @@ struct SettingsView: View {
                     Text(Copy.Settings.effectiveDate)
                     dateButton
                 }
+                // 这一行是卡片的最后一行：原来「保存预算」还在这张卡里，它下面这条线是
+                // 「卡片内部再分区」用的。按钮搬出卡片之后没人用得上它了，留着就是在卡片
+                // 底边上划一道缝（默认字号量到 362.0–363.0，另外两张卡都没有）。
+                .listRowSeparator(.hidden)
             } else {
             HStack {
                 Text(Copy.Settings.effectiveDate)
@@ -215,6 +219,7 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("\(Copy.Settings.effectiveDate)，\(displayDate)"))
             }
+            .listRowSeparator(.hidden)
             }
 
             // 真按钮，不是一行说明：可用时实底 accent，不可用时灰底点不动。
@@ -228,7 +233,7 @@ struct SettingsView: View {
             }
             .buttonStyle(BudgetSaveButtonStyle(enabled: canSaveBudget))
             .disabled(!canSaveBudget)
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 8, trailing: 0))
             .listRowBackground(Color.clear)
 
             if let budgetError {

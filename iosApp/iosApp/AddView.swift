@@ -815,7 +815,8 @@ struct AddView: View {
             .textFieldStyle(.plain)
             .focused($amountFocused)
             // 不缩字：放不下就换行，字是用户选的。
-            .minimumScaleFactor(1)
+            // （这里原来挂着 minimumScaleFactor(1)，是不缩字的写法——但这条规则只认「0 处」，
+            //   一个数字从 0.6 一路改到 1，说明下一个人还会再改它一次。整条删掉。）
             .accessibilityLabel(Text(Copy.Add.Section.amount))
             .onChange(of: amountText) { _, _ in
                 errorText = nil

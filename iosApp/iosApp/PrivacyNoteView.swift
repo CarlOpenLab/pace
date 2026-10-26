@@ -15,7 +15,8 @@ struct PrivacyNoteView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: PaceSpace.cardGap) {
                 Text(Copy.PrivacySheet.title)
-                    .font(.system(size: 26, weight: .bold))
+                    // 原 26 号页面标题：保住基准，只跟系统缩放。
+                    .paceFont(26, .bold, relativeTo: .title)
                     .foregroundStyle(PaceColor.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -23,11 +24,11 @@ struct PrivacyNoteView: View {
                     ForEach(lines, id: \.self) { line in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
+                                .paceFont(12, .bold, relativeTo: .caption)
                                 .foregroundStyle(PaceColor.ink2)
                                 .padding(.top, 4)
                             Text(line)
-                                .font(.system(size: 15))
+                                .paceFont(15, .regular, relativeTo: .subheadline)
                                 .foregroundStyle(PaceColor.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -35,7 +36,7 @@ struct PrivacyNoteView: View {
                 }
 
                 Text(Copy.PrivacySheet.footer)
-                    .font(.system(size: 12))
+                    .paceFont(12, .regular, relativeTo: .caption)
                     .foregroundStyle(PaceColor.ink2)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -45,9 +46,9 @@ struct PrivacyNoteView: View {
                         dismiss()
                     } label: {
                         Text(Copy.PrivacySheet.primary)
-                            .font(.system(size: 16, weight: .semibold))
+                            .paceFont(16, .semibold, relativeTo: .callout)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
+                            .frame(minHeight: 50)
                     }
                     .buttonStyle(PrimaryButtonStyle())
 
@@ -58,7 +59,7 @@ struct PrivacyNoteView: View {
                     .buttonStyle(PlainButtonStylePace())
 
                     Text(Copy.PrivacySheet.settingsHint)
-                        .font(.system(size: 11))
+                        .paceFont(11, .regular, relativeTo: .caption2)
                         .foregroundStyle(PaceColor.ink2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)

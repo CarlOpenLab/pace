@@ -14,14 +14,16 @@ struct FloatingAddButton: View {
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .semibold))
+                    .paceFont(15, .semibold, relativeTo: .callout, cap: 1.5)
                 Text("记一笔")
-                    .font(.system(size: 15, weight: .semibold))
+                    .paceFont(15, .semibold, relativeTo: .callout, cap: 1.5)
             }
             .foregroundStyle(PaceColor.onAccent)
-            .padding(.leading, 15)
-            .padding(.trailing, 18)
-            .frame(height: 44)
+            // 内距和高度跟着字长（Colo 第十五版：胶囊最小高 44，左右内距跟着长）。
+            // 封顶 1.5 的理由和别处不同：它是浮在账上的东西，再大就开始挡住下面。
+            .pacePadding(15, .leading)
+            .pacePadding(18, .trailing)
+            .frame(minHeight: 44)
         }
         .buttonStyle(.glassProminent)
         .tint(PaceColor.accent)

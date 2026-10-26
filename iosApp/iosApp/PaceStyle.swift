@@ -148,7 +148,7 @@ struct StatusPill: View {
     var body: some View {
         HStack(spacing: 4) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                Image(systemName: icon).paceFont(11, .semibold, relativeTo: .caption2)
             }
             Text(text).font(.caption.weight(.semibold))
         }

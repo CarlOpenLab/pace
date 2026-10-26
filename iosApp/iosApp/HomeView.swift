@@ -8,6 +8,10 @@ struct HomeView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 56
+    /// hero 的基准字号。量宽度那一份必须钉在基准上，否则「按比例算放得下多大」的两边都在长。
+    static let heroBasePointSize: CGFloat = 56
+    /// 分类行左端那个圆跟着字号长（封顶 1.3 倍）。
+    @ScaledMetric(relativeTo: .body) private var iconCircle: CGFloat = 34
     @Environment(\.dynamicTypeSize) private var typeSize
     /// 金额这一行能用的宽、以及同一串字在 56 点时有多宽（量出来，不是估）。
     @State private var heroAvailableWidth: CGFloat = 0
@@ -250,7 +254,7 @@ struct HomeView: View {
             // 量这串字在 56 点下多宽：拿去按比例算「放到多大才放得下」。
             .background(alignment: .leading) {
                 Text(text)
-                    .font(.system(size: 56, weight: .heavy, design: .rounded))
+                    .font(.system(size: HomeView.heroBasePointSize, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .hidden()
                     .fixedSize()
@@ -374,9 +378,9 @@ struct HomeView: View {
         ZStack {
             Circle()
                 .fill(PaceColor.softFill)
-                .frame(width: 34, height: 34)
+                .frame(width: min(iconCircle, 34 * 1.3), height: min(iconCircle, 34 * 1.3))
             Image(systemName: iconName(for: txn))
-                .font(.system(size: 15, weight: .semibold))
+                .paceFont(15, .semibold, relativeTo: .body, cap: 1.3)
                 .foregroundStyle(PaceColor.ink)
         }
     }
@@ -386,9 +390,9 @@ struct HomeView: View {
             ZStack {
                 Circle()
                     .fill(PaceColor.softFill)
-                    .frame(width: 34, height: 34)
+                    .frame(width: min(iconCircle, 34 * 1.3), height: min(iconCircle, 34 * 1.3))
                 Image(systemName: iconName(for: txn))
-                    .font(.system(size: 15, weight: .semibold))
+                    .paceFont(15, .semibold, relativeTo: .body, cap: 1.3)
                     .foregroundStyle(PaceColor.ink)
             }
 

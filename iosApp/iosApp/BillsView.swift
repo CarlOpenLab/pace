@@ -47,6 +47,9 @@ private struct BillDayGroup: Identifiable {
 struct BillsView: View {
     @EnvironmentObject private var state: AppState
 
+    /// 分类图形的圆跟着字号长（封顶 1.3 倍）：圆是固定的，字一大图形会顶到圆边上。
+    @ScaledMetric(relativeTo: .body) private var iconCircle: CGFloat = 34
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var keyword = ""
@@ -322,9 +325,9 @@ struct BillsView: View {
         ZStack {
             Circle()
                 .fill(PaceColor.card2)
-                .frame(width: 34, height: 34)
+                .frame(width: min(iconCircle, 34 * 1.3), height: min(iconCircle, 34 * 1.3))
             Image(systemName: categoryIconName(txn.category))
-                .font(.system(size: 15, weight: .semibold))
+                .paceFont(15, .semibold, relativeTo: .body, cap: 1.3)
                 .foregroundStyle(PaceColor.ink)
         }
         .accessibilityHidden(true)

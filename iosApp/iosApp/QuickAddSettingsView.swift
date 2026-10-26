@@ -95,7 +95,8 @@ struct QuickAddSettingsView: View {
         .overlay(alignment: .top) {
             if let toast {
                 Text(toast)
-                    .font(.system(size: 14, weight: .semibold))
+                    // 原 14 号：系统 subheadline 是 15，按基准缩放不硬对档。
+                    .paceFont(14, .semibold, relativeTo: .subheadline)
                     .foregroundStyle(PaceColor.ink)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -122,11 +123,11 @@ struct QuickAddSettingsView: View {
                     }
                 }
             ))
-            .font(.system(size: 15, weight: .semibold))
+            .paceFont(15, .semibold, relativeTo: .subheadline)
             .tint(PaceColor.accent)
 
             Text(ai.enabled ? Copy.Ai.Settings.subtitleOn : Copy.Ai.Settings.subtitleOff)
-                .font(.system(size: 12))
+                .paceFont(12, .regular, relativeTo: .caption)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -154,10 +155,11 @@ struct QuickAddSettingsView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(currentProvider.name)
-                            .font(.system(size: 15))
+                            .paceFont(15, .regular, relativeTo: .subheadline)
                             .foregroundStyle(PaceColor.ink)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            // 原 10 号：caption2 是 11，按基准缩放。
+                            .paceFont(10, .semibold, relativeTo: .caption2)
                             .foregroundStyle(PaceColor.ink2)
                     }
                 }
@@ -172,7 +174,10 @@ struct QuickAddSettingsView: View {
                     note: Copy.Ai.Settings.Endpoint.note,
                     stacked: true
                 ) {
-                    TextField(Copy.Ai.Settings.Endpoint.placeholder, text: $ai.endpoint)
+                    // 地址自己会换行：单行输入框在最大档把一串地址截成「http://127.0.0.1:…」，
+                    // 省略号正好切在最该核对的那一段上。
+                    TextField(Copy.Ai.Settings.Endpoint.placeholder, text: $ai.endpoint, axis: .vertical)
+                        .lineLimit(1...3)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -218,13 +223,13 @@ struct QuickAddSettingsView: View {
                 Button(manualEntry ? Copy.Ai.Settings.ModelPick.backToList : Copy.Ai.Settings.ModelPick.manual) {
                     manualEntry.toggle()
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .paceFont(13, .semibold, relativeTo: .footnote)
                 .foregroundStyle(PaceColor.ink)
             }
 
             if !models.isEmpty, !ai.model.isEmpty, !models.contains(ai.model) {
                 Text(Copy.Ai.Settings.ModelPick.stale(ai.model))
-                    .font(.system(size: 11))
+                    .paceFont(11, .regular, relativeTo: .caption2)
                     .foregroundStyle(PaceColor.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -246,7 +251,7 @@ struct QuickAddSettingsView: View {
                         .onSubmit { reloadAfterEdit() }
                     if !ai.key.isEmpty {
                         Button(Copy.Ai.Test.clearKey) { confirmClearKey = true }
-                            .font(.system(size: 12))
+                            .paceFont(12, .regular, relativeTo: .caption)
                             .foregroundStyle(PaceColor.danger)
                     }
                 }
@@ -255,13 +260,13 @@ struct QuickAddSettingsView: View {
             // 从一句话那页挪过来的隐私说明：它是这条路的边界，不是装饰。
             // 就贴在 Key 输入框下面，一行 12 ink2。
             Text(Copy.Ai.Settings.keyScope)
-                .font(.system(size: 12))
+                .paceFont(12, .regular, relativeTo: .caption)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if ai.keyStoreFailed, !ai.key.isEmpty {
                 Text(Copy.Ai.Settings.Key.storeFailed)
-                    .font(.system(size: 11))
+                    .paceFont(11, .regular, relativeTo: .caption2)
                     .foregroundStyle(PaceColor.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -280,23 +285,23 @@ struct QuickAddSettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             if stacked {
                 Text(label)
-                    .font(.system(size: 15))
+                    .paceFont(15, .regular, relativeTo: .subheadline)
                     .foregroundStyle(PaceColor.ink)
                 content()
-                    .font(.system(size: 15))
+                    .paceFont(15, .regular, relativeTo: .subheadline)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(label)
-                        .font(.system(size: 15))
+                        .paceFont(15, .regular, relativeTo: .subheadline)
                         .foregroundStyle(PaceColor.ink)
                         .layoutPriority(1)
                     content()
-                        .font(.system(size: 15))
+                        .paceFont(15, .regular, relativeTo: .subheadline)
                 }
             }
             Text(note)
-                .font(.system(size: 11))
+                .paceFont(11, .regular, relativeTo: .caption2)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -308,7 +313,7 @@ struct QuickAddSettingsView: View {
             if let hint = modelListHint {
                 // 缺哪样说哪样；两样都缺就说两样。不放在这儿按了没用的按钮。
                 Text(hint)
-                    .font(.system(size: 11))
+                    .paceFont(11, .regular, relativeTo: .caption2)
                     .foregroundStyle(PaceColor.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -317,7 +322,7 @@ struct QuickAddSettingsView: View {
 
             if let modelsNotice {
                 Text(modelsNotice.text)
-                    .font(.system(size: 11))
+                    .paceFont(11, .regular, relativeTo: .caption2)
                     .foregroundStyle(modelsNotice.isWarning ? PaceColor.danger : PaceColor.ink2)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.updatesFrequently)
@@ -349,7 +354,7 @@ struct QuickAddSettingsView: View {
                             .tint(PaceColor.ink2)
                     }
                     Text(fetchLabel)
-                        .font(.system(size: 13, weight: .semibold))
+                        .paceFont(13, .semibold, relativeTo: .footnote)
                         .foregroundStyle(PaceColor.ink)
                 }
             }
@@ -361,11 +366,12 @@ struct QuickAddSettingsView: View {
     private var modelLabel: some View {
         HStack(spacing: 4) {
             Text(ai.model.isEmpty ? Copy.Ai.Settings.ModelPick.choose : ai.model)
-                .font(.system(size: 15))
+                .paceFont(15, .regular, relativeTo: .subheadline)
                 .foregroundStyle(ai.model.isEmpty ? PaceColor.ink2 : PaceColor.ink)
-                .lineLimit(1)
+                .lineLimit(2)
             Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 10, weight: .semibold))
+                // 原 10 号：caption2 是 11，按基准缩放。
+                .paceFont(10, .semibold, relativeTo: .caption2)
                 .foregroundStyle(PaceColor.ink2)
         }
     }
@@ -447,10 +453,10 @@ struct QuickAddSettingsView: View {
                     ProgressView().tint(PaceColor.onAccent)
                 }
                 Text(testing ? Copy.Ai.Test.connecting : Copy.Ai.Test.button)
-                    .font(.system(size: 15, weight: .semibold))
+                    .paceFont(15, .semibold, relativeTo: .subheadline)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .frame(minHeight: 50)
         }
         .buttonStyle(PrimaryButtonStyle())
         .disabled(testing)
@@ -480,9 +486,10 @@ struct QuickAddSettingsView: View {
             }
         }()
         return HStack(alignment: .top, spacing: 8) {
-            Image(systemName: shape.1).font(.system(size: 13, weight: .semibold))
+            Image(systemName: shape.1).paceFont(13, .semibold, relativeTo: .footnote)
             Text(shape.0)
-                .font(.system(size: 14, weight: .semibold))
+                // 原 14 号：系统 subheadline 是 15，按基准缩放不硬对档。
+                .paceFont(14, .semibold, relativeTo: .subheadline)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(shape.2)
@@ -496,10 +503,10 @@ struct QuickAddSettingsView: View {
     private var securityCard: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(Copy.Ai.Settings.securityTitle)
-                .font(.system(size: 13, weight: .semibold))
+                .paceFont(13, .semibold, relativeTo: .footnote)
                 .foregroundStyle(PaceColor.ink)
             Text(Copy.Ai.Settings.securityNote)
-                .font(.system(size: 12))
+                .paceFont(12, .regular, relativeTo: .caption)
                 .foregroundStyle(PaceColor.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -562,7 +569,7 @@ struct AiModelPickerView: View {
                 Divider().background(PaceColor.divider)
                 if filtered.isEmpty {
                     Text(Copy.Ai.Settings.ModelPick.noMatch)
-                        .font(.system(size: 13))
+                        .paceFont(13, .regular, relativeTo: .footnote)
                         .foregroundStyle(PaceColor.ink2)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -599,10 +606,10 @@ struct AiModelPickerView: View {
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .semibold))
+                .paceFont(13, .semibold, relativeTo: .footnote)
                 .foregroundStyle(PaceColor.ink2)
             TextField(Copy.Ai.Settings.ModelPick.search, text: $query)
-                .font(.system(size: 15))
+                .paceFont(15, .regular, relativeTo: .subheadline)
                 .focused($searchFocused)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -612,7 +619,8 @@ struct AiModelPickerView: View {
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        // 原 14 号：系统 subheadline 是 15，按基准缩放不硬对档。
+                        .paceFont(14, .regular, relativeTo: .subheadline)
                         .foregroundStyle(PaceColor.ink3)
                 }
                 .buttonStyle(.plain)
@@ -620,7 +628,7 @@ struct AiModelPickerView: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(height: 44)
+        .frame(minHeight: 44)
     }
 
     private func row(_ name: String) -> some View {
@@ -630,18 +638,19 @@ struct AiModelPickerView: View {
         } label: {
             HStack(spacing: 8) {
                 Text(name)
-                    .font(.system(size: 15, weight: name == selected ? .semibold : .regular))
+                    // 选中加粗走 15 重字，未选中走正文。
+                    .paceFont(15, name == selected ? .semibold : .regular, relativeTo: .subheadline)
                     .foregroundStyle(PaceColor.ink)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 if name == selected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .paceFont(13, .semibold, relativeTo: .footnote)
                         .foregroundStyle(PaceColor.ink)
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: 44)
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
