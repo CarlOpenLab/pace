@@ -16,29 +16,25 @@ enum AddFillMode: Hashable {
 struct AddModeSwitcher: View {
     @Binding var mode: AddFillMode
 
-    // 三个高度跟着 label 的字长走，封顶 1.6 倍（和 Colo 的间距规则同一条）。
-    // 默认字号下就是原来的 44 / 34 / 28——接字号不是顺手调版式。
-    @ScaledMetric(relativeTo: .subheadline) private var tapHeight: CGFloat = 44
-    @ScaledMetric(relativeTo: .subheadline) private var trackHeight: CGFloat = 34
-    @ScaledMetric(relativeTo: .subheadline) private var pillHeight: CGFloat = 28
+    /// 槽高 44、内距 3、段高 38（Colo 2.3.1，Carl 定的玻璃切换）。
+    /// 跟着字号按 1.6 倍封顶长——默认字号就是原来的 44/38。
+    @ScaledMetric(relativeTo: .subheadline) private var slotHeight: CGFloat = 44
 
-    private var tap: CGFloat { min(tapHeight, 44 * 1.6) }
-    private var track: CGFloat { min(trackHeight, 34 * 1.6) }
-    private var pill: CGFloat { min(pillHeight, 28 * 1.6) }
+    private var slot: CGFloat { min(slotHeight, 44 * 1.6) }
+    private var track: CGFloat { slot - 6 }
+
+    @Namespace private var selection
 
     var body: some View {
         HStack(spacing: 0) {
             segment(.sentence, title: Copy.AddMode.sentence)
             segment(.manual, title: Copy.AddMode.manual)
         }
-        .padding(.horizontal, 3)
-        .frame(height: tap)
-        // 胶囊高度跟着字长：写死 34 之后，字一放大两段就挤成一团。
-        .background(alignment: .center) {
-            Capsule(style: .continuous)
-                .fill(PaceColor.card2)
-                .frame(height: track)
-        }
+        .padding(3)
+        .frame(height: slot)
+        // 只有槽是玻璃：选中那一段仍是实底。两段都在玻璃上，就再也看不出选的是哪个。
+        .glassEffect(.regular, in: .capsule)
+        .animation(.easeOut(duration: 0.18), value: mode)
     }
 
     private func segment(_ value: AddFillMode, title: String) -> some View {
@@ -46,17 +42,17 @@ struct AddModeSwitcher: View {
             mode = value
         } label: {
             Text(title)
-                .paceFont(PaceType.labelBase, .medium)
+                .paceFont(15, .semibold)
                 .foregroundStyle(mode == value ? PaceColor.onAccent : PaceColor.ink2)
                 .lineLimit(1)
                 // 不再压字号：minimumScaleFactor(0.85) 就是把用户选的字按回去。
                 .frame(maxWidth: .infinity)
-                .frame(height: tap)
+                .frame(height: track)
                 .background(alignment: .center) {
                     if mode == value {
                         Capsule(style: .continuous)
                             .fill(PaceColor.accent)
-                            .frame(height: pill)
+                            .matchedGeometryEffect(id: "selected", in: selection)
                     }
                 }
                 .contentShape(Rectangle())

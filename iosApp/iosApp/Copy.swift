@@ -611,6 +611,12 @@ enum Copy {
 
         /// 再说一次的那个动作（三条失败卡上都有）。
         static let retry = "再试一次"
+
+        /// 自画勾选块的读屏状态：读屏要能说「开关，已打开／已关闭」。
+        enum Controls {
+            static let on = "已打开"
+            static let off = "已关闭"
+        }
     }
 
     // MARK: - 7.31 通用校验错误（TxnUI）

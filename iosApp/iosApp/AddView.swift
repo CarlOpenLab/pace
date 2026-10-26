@@ -1018,12 +1018,18 @@ struct AddView: View {
     /// 卡 4：计入预算 / 退款关联。
     private var budgetCard: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // 自画勾选块：系统开关在暗色下圆点和轨道都是白的，开和关分不出来。
             Toggle(isOn: $countInBudget) {
                 Text("计入每日预算")
                     .font(PaceType.rowTitle)
                     .foregroundStyle(PaceColor.ink)
             }
-            .tint(PaceColor.accent)
+            .toggleStyle(CheckBlockToggleStyle())
+            .accessibilityRepresentation {
+                Toggle(isOn: $countInBudget) {
+                    Text("计入每日预算")
+                }
+            }
 
             Text("关闭后仍计入总支出统计")
                 .font(PaceType.secondary)

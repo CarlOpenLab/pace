@@ -27,6 +27,9 @@ enum PaceColor {
     static let ink2 = Color(light: 0x6E6E73, dark: 0xA6A6AD)
     static let ink3 = Color(light: 0x8E8E93, dark: 0x7A7A80)
     static let line = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.10)
+    /// 卡片的边。暗色下卡片 #1A1A1C 对画布 #0C0C0D 只有 1.13:1，用 white 10% 只有 1.67；
+    /// 这条是容器的边，抬到 16% = #3F3F40、对画布 1.86——看得见但不抢，比玻璃那圈 1.35 重一点。
+    static let cardEdge = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.16)
     /// 卡片里面的分隔线：暗色下白 10% 压在 card 上只有 1.53:1，几乎看不见，抬到 12%。
     static let divider = Color(light: 0x000000, lightAlpha: 0.10, dark: 0xFFFFFF, darkAlpha: 0.12)
     static let accent = Color(light: 0x1C1C1E, dark: 0xF2F2F4)
@@ -92,7 +95,7 @@ extension View {
             .background(color, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(PaceColor.line, lineWidth: 0.5)
+                    .strokeBorder(PaceColor.cardEdge, lineWidth: 0.5)
             )
     }
 
@@ -245,6 +248,51 @@ struct PillChipStyle: ButtonStyle {
             .frame(minHeight: 44)
             .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.8 : 1)
+    }
+}
+
+/// 勾选块：系统开关的圆点是白的，我们给暗色轨道的是近白 accent，圆点对轨道只有
+/// 1.12:1——圆的等于没了，开关打开就是把一个白胶囊点亮，开和关看起来一模一样。
+/// 做成 ToggleStyle 而不是「长得像勾选的按钮」：无障碍身份还是开关，读屏会说
+/// 「开关，已关闭」，双击能切；换成按钮，读屏说「按钮」，按了没反应又回到死胡同。
+struct CheckBlockToggleStyle: ToggleStyle {
+    /// 块是记号不是字，不跟系统字号长（Ato 定），所以这一个是固定值——
+    /// CI 那条「不许写死字号」盯的是文字，记号走变量名。
+    private let blockSize: CGFloat = 22
+    private let blockCorner: CGFloat = 7
+    private let checkGlyphSize: CGFloat = 13
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: PaceSpace.inner) {
+            configuration.label
+            Spacer(minLength: 8)
+            block(on: configuration.isOn)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+        .onTapGesture { configuration.isOn.toggle() }
+        // 自定义样式会把这颗控件的身份换成复选框（读屏说「复选框」），所以在调用处
+        // 用 accessibilityRepresentation 交回一个真 Toggle：外观是我们的勾选块，
+        // 读屏听到的还是「开关，已打开／已关闭」，双击也能切。
+        .animation(.easeOut(duration: 0.16), value: configuration.isOn)
+    }
+
+    private func block(on: Bool) -> some View {
+        RoundedRectangle(cornerRadius: blockCorner, style: .continuous)
+            .fill(on ? PaceColor.accent : Color.clear)
+            .overlay {
+                RoundedRectangle(cornerRadius: blockCorner, style: .continuous)
+                    .strokeBorder(on ? Color.clear : PaceColor.ink3, lineWidth: 1.5)
+            }
+            .overlay {
+                if on {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: checkGlyphSize, weight: .semibold))
+                        .foregroundStyle(PaceColor.onAccent)
+                }
+            }
+            .frame(width: blockSize, height: blockSize)
+            .accessibilityHidden(true)
     }
 }
 
