@@ -345,8 +345,11 @@ enum Copy {
         static let remainingLabel = "今天还剩"
         static let remainingOverspentLabel = "今天超支"
         static func budgetSpent(budget: String, spent: String) -> String {
-            "预算 ¥\(budget) · 已花 ¥\(spent)"
+            "\(budgetPart(budget: budget)) · \(spentPart(spent: spent))"
         }
+        /// 大字号下要折行：拆成两段、不带点（Colo 第十六版：分隔点只在一整行放得下时出现）。
+        static func budgetPart(budget: String) -> String { "预算 ¥\(budget)" }
+        static func spentPart(spent: String) -> String { "已花 ¥\(spent)" }
         static let budgetSpentHint = "不算进预算的那几笔，和退款，都不在这里扣。"
         static let todayBillsTitle = "今天"
         static let emptyTitle = "还没有账单"
