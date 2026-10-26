@@ -249,29 +249,110 @@ struct BillsView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(PaceColor.canvas)
-        .contentMargins(.bottom, 76, for: .scrollContent)
+        .contentMargins(.bottom, PaceSpace.fabClearance, for: .scrollContent)
         .tracksFabScroll()
     }
 
     private func dayHeader(_ group: BillDayGroup) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(dayTitle(group.date))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(PaceColor.ink2)
-                .accessibilityAddTraits(.isHeader)
-
-            Spacer(minLength: 8)
-
-            Text(netLabel(group.netMinor))
-                .font(.system(size: 12))
-                .monospacedDigit()
-                .foregroundStyle(PaceColor.ink2)
+        // 日期和当天净额都是 caption（12 点，默认字号下和以前一个像素都不差）。
+        // 大字号下一排放不下就上下两行：这两个数都短，谁也不该被截。
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                dayTitleText(group)
+                Spacer(minLength: 8)
+                netLabelText(group)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                dayTitleText(group)
+                netLabelText(group)
+            }
         }
         .padding(.top, PaceSpace.cardGap)
         .padding(.bottom, 6)
         .listRowInsets(EdgeInsets(top: 0, leading: PaceSpace.screen, bottom: 0, trailing: PaceSpace.screen))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+    }
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private func dayTitleText(_ group: BillDayGroup) -> some View {
+        Text(dayTitle(group.date))
+            .font(PaceType.caption.weight(.semibold))
+            .foregroundStyle(PaceColor.ink2)
+            .accessibilityAddTraits(.isHeader)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func netLabelText(_ group: BillDayGroup) -> some View {
+        Text(netLabel(group.netMinor))
+            .font(PaceType.caption)
+            .monospacedDigit()
+            .foregroundStyle(PaceColor.ink2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// 大字号下：金额自己占一整行，时间换行让位。和首页同一条规则（Colo 写进表的）：
+    /// 金额是这一行唯一必须读准的东西，不退让。
+    private func stackedRowContent(_ txn: LedgerTransaction) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: PaceSpace.inner) {
+                rowIcon(txn)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rowTitle(txn))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(PaceColor.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(rowSubtitle(txn))
+                        .font(.footnote)
+                        .foregroundStyle(PaceColor.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Text(amountLabel(txn))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(amountColor(txn))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private func rowIcon(_ txn: LedgerTransaction) -> some View {
+        ZStack {
+            Circle()
+                .fill(PaceColor.card2)
+                .frame(width: 34, height: 34)
+            Image(systemName: categoryIconName(txn.category))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PaceColor.ink)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func compactRowContent(_ txn: LedgerTransaction) -> some View {
+        HStack(spacing: PaceSpace.inner) {
+            rowIcon(txn)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rowTitle(txn))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(PaceColor.ink)
+                    .lineLimit(1)
+                Text(rowSubtitle(txn))
+                    .font(.footnote)
+                    .foregroundStyle(PaceColor.ink2)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(amountLabel(txn))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(amountColor(txn))
+                .lineLimit(1)
+        }
     }
 
     private func txnRow(
@@ -283,36 +364,12 @@ struct BillsView: View {
             Button {
                 editingTxnId = txn.id
             } label: {
-                HStack(spacing: PaceSpace.inner) {
-                    ZStack {
-                        Circle()
-                            .fill(PaceColor.card2)
-                            .frame(width: 34, height: 34)
-                        Image(systemName: categoryIconName(txn.category))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(PaceColor.ink)
+                Group {
+                    if typeSize.isAccessibilitySize {
+                        stackedRowContent(txn)
+                    } else {
+                        compactRowContent(txn)
                     }
-                    .accessibilityHidden(true)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(rowTitle(txn))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(PaceColor.ink)
-                            .lineLimit(1)
-                        Text(rowSubtitle(txn))
-                            .font(.footnote)
-                            .foregroundStyle(PaceColor.ink2)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    Text(amountLabel(txn))
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(amountColor(txn))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
                 }
                 .padding(.horizontal, PaceSpace.cardPadding)
                 .padding(.vertical, 10)
@@ -669,7 +726,7 @@ private struct BillsUndoBar: View {
     private var bar: some View {
         HStack(spacing: PaceSpace.inner) {
             Text(message)
-                .font(.system(size: 14, weight: .semibold))
+                .paceFont(14, .semibold)
                 .foregroundStyle(PaceColor.ink)
                 .lineLimit(1)
                 .accessibilityLabel(Text(accessibilityMessage))
@@ -680,7 +737,7 @@ private struct BillsUndoBar: View {
                 Button(Copy.Delete.undo) {
                     onUndo()
                 }
-                .font(.system(size: 14, weight: .semibold))
+                .paceFont(14, .semibold)
                 .foregroundStyle(PaceColor.ink)
                 .buttonStyle(.plain)
                 .frame(minHeight: 44)

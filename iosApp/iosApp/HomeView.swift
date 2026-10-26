@@ -25,8 +25,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, PaceSpace.screen)
                 .padding(.top, 8)
-                // 给右下角浮着的「记一笔」留出滚动余量（76）
-                .padding(.bottom, 76)
+                .padding(.bottom, PaceSpace.fabClearance)
             }
             .tracksFabScroll()
             .paceScreen()

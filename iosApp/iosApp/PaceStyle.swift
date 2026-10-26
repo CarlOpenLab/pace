@@ -54,6 +54,10 @@ enum PaceSpace {
     static let heroPadding: CGFloat = 22
     static let cardGap: CGFloat = 16
     static let inner: CGFloat = 12
+    /// 滚到底时给浮着的「记一笔」留出的余量。76 那会儿滚到最后，卡片底边会钻进
+    /// 按钮底下 9 点（按钮上边 683、卡片底边 692，最大字号实测）；100 是让最后一行的
+    /// 底边落在按钮上方 15 点左右。按钮和底栏都是定尺寸的，这个数不用跟字号走。
+    static let fabClearance: CGFloat = 100
 }
 
 enum PaceRadius {
