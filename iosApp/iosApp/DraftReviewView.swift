@@ -259,52 +259,29 @@ struct DraftReviewView: View {
     private func saveAll() {
         guard !saving, missingCount == 0 else { return }
         saving = true
-        let api = LedgerStore.shared.api
-        let input = drafts.map { draft in
-            makeSaveInput(
-                type: draft.type,
-                amountText: draft.amountText,
-                category: draft.category,
-                note: draft.note,
-                localDate: draft.localDate,
-                account: draft.account.isEmpty ? "现金" : draft.account,
-                countInBudget: draft.countInBudget,
-                forceSave: false
-            )
-        }
+        let outcome = DraftSaver.save(drafts)
 
-        // 先存一遍：全都撞上重复，就直接问要不要照样记，不先报一个「已保存 0 笔」。
-        var saved = 0
-        var duplicated: [DraftItem] = []
-        for (index, draft) in drafts.enumerated() {
-            let result = api.saveTransaction(input: input[index])
-            if result.isSuccess {
-                saved += 1
-            } else if result.errorCode == "DUPLICATE_FINGERPRINT" {
-                duplicated.append(draft)
-            }
-        }
-
-        if saved == 0, !duplicated.isEmpty {
+        // 全都撞上重复，就直接问要不要照样记，不先报一个「已保存 0 笔」。
+        if outcome.saved == 0, !outcome.duplicated.isEmpty {
             saving = false
-            withAnimation { toast = Copy.Save.allDuplicates(count: duplicated.count) }
+            withAnimation { toast = Copy.Save.allDuplicates(count: outcome.duplicated.count) }
             duplicateNotice = true
             return
         }
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            toast = duplicated.isEmpty
-                ? Copy.Save.saved(count: saved)
-                : Copy.Save.savedSomeDuplicates(saved: saved, duplicated: duplicated.count)
+            toast = outcome.duplicated.isEmpty
+                ? Copy.Save.saved(count: outcome.saved)
+                : Copy.Save.savedSomeDuplicates(saved: outcome.saved, duplicated: outcome.duplicated.count)
         }
         Task {
             try? await Task.sleep(nanoseconds: 1_400_000_000)
-            if duplicated.isEmpty {
+            if outcome.duplicated.isEmpty {
                 onDone()
                 dismiss()
             } else {
                 // 存进去的不再留着，只把重复的这几笔留在页面上问用户。
-                drafts = duplicated
+                drafts = outcome.duplicated
                 saving = false
                 withAnimation { toast = nil }
                 duplicateNotice = true
@@ -314,22 +291,8 @@ struct DraftReviewView: View {
 
     /// 用户说「照样记」：把剩下这几笔强制写进去。
     private func saveDuplicatesAnyway() {
-        let api = LedgerStore.shared.api
-        var saved = 0
-        for draft in drafts {
-            let result = api.saveTransaction(input: makeSaveInput(
-                type: draft.type,
-                amountText: draft.amountText,
-                category: draft.category,
-                note: draft.note,
-                localDate: draft.localDate,
-                account: draft.account.isEmpty ? "现金" : draft.account,
-                countInBudget: draft.countInBudget,
-                forceSave: true
-            ))
-            if result.isSuccess { saved += 1 }
-        }
-        withAnimation { toast = Copy.Save.saved(count: saved) }
+        let outcome = DraftSaver.save(drafts, force: true)
+        withAnimation { toast = Copy.Save.saved(count: outcome.saved) }
         Task {
             try? await Task.sleep(nanoseconds: 1_400_000_000)
             onDone()

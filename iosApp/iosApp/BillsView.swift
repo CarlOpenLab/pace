@@ -93,6 +93,9 @@ struct BillsView: View {
                 .onChange(of: state.showDrafts) { _, showing in
                     if !showing { reload() }
                 }
+                .onChange(of: state.showQuickAdd) { _, showing in
+                    if !showing { reload() }
+                }
                 .sheet(item: editingBinding, onDismiss: { reload() }) { box in
                     AddView(txnId: box.id)
                 }

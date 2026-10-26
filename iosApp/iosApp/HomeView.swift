@@ -40,6 +40,9 @@ struct HomeView: View {
         .onChange(of: state.showDrafts) { _, showing in
             if !showing { refresh() }
         }
+        .onChange(of: state.showQuickAdd) { _, showing in
+            if !showing { refresh() }
+        }
     }
 
     // MARK: - 内容与状态

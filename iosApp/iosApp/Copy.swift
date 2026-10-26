@@ -48,6 +48,11 @@ enum Copy {
             static let manual = "改成手动记账"
             static let submit = "整理成草稿"
             static let submitting = "正在整理…"
+            /// 就地确认（docs/DESIGN-quickadd-primary.md §5）
+            static let parsing = "正在拆这一句…"
+            static let confirmInline = "记上"
+            static let editInline = "改一下"
+            static let confirmed = "记上了"
         }
 
         /// 3. 设置里的「AI 一句话记账」。
@@ -125,7 +130,7 @@ enum Copy {
             enum Key {
                 static let label = "Key"
                 static let placeholder = "sk-…"
-                static let note = "只存在这台手机的钥匙串里，不写进导出文件，不进日志。清空账本不会删它，要删就点下面的「清空 Key」。"
+                static let note = "只存在这台手机的钥匙串里，不写进导出文件，不进日志。清空账本不会删它，要删就点「清空 Key」。"
                 static let storeFailed = "这把 Key 没存进手机。这一页里还能用，但重开 app 就没了，得再粘一次。"
             }
 
