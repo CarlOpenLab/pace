@@ -515,7 +515,7 @@ enum Copy {
             static func previewDuplicates(count: Int) -> String {
                 "其中 \(count) 笔现在账本里已经有了"
             }
-            static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。 替换：先清空，再写入文件里的内容。"
+            static let mergeOrReplaceNote = "合并：只补充新的，已有的不动。替换：先清空，再写入文件里的内容。"
             static func merged(added: Int, skipped: Int) -> String {
                 "已合并：新增 \(added) 笔，跳过 \(skipped) 笔"
             }
