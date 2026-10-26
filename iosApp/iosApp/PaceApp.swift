@@ -141,5 +141,9 @@ struct RootView: View {
                 state.pendingDrafts = []
             }
         }
+        #if DEBUG
+        // 上膛了就挂一条，免得拿正常路径当失败路径验。
+        .safeAreaInset(edge: .top, spacing: 0) { DebugFaultBanner() }
+        #endif
     }
 }

@@ -287,7 +287,7 @@ struct SettingsView: View {
     /// 只在调试构建里出现，正式包里这一节整块不存在。
     #if DEBUG
     private var debugFaultBinding: Binding<DebugFault> {
-        Binding(get: { DebugFaults.armed }, set: { DebugFaults.armed = $0 })
+        Binding(get: { DebugFaults.shared.armed }, set: { DebugFaults.shared.arm($0) })
     }
     #endif
 
@@ -333,7 +333,7 @@ struct SettingsView: View {
             .appendingPathComponent("pace-ledger-\(stamp).\(ext)")
         #if DEBUG
         // 磁盘不坏就没有写失败，只能造一个，看那两句字会不会截。
-        if DebugFaults.take(.exportWrite) {
+        if DebugFaults.shared.take(.exportWrite) {
             failedExport = retry
             exportFailed = true
             return

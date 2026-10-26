@@ -19,7 +19,7 @@ enum DraftSaver {
         for (index, draft) in drafts.enumerated() {
             #if DEBUG
             // 保存只成一半：第二笔故意写不进去，看确认页会不会把话说出来。
-            if index == 1, DebugFaults.take(.partialSave) {
+            if index == 1, DebugFaults.shared.take(.partialSave) {
                 outcome.failed.append(draft)
                 continue
             }

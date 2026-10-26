@@ -163,6 +163,9 @@ struct AddView: View {
             } message: {
                 Text(Copy.Confirm.Duplicate.body)
             }
+            #if DEBUG
+            .safeAreaInset(edge: .top, spacing: 0) { DebugFaultBanner() }
+            #endif
             .sheet(item: $reviewPayload) { payload in
                 DraftReviewView(drafts: payload.drafts) {
                     onDone()
@@ -327,21 +330,41 @@ struct AddView: View {
 
     private func failureCard(_ failure: AiFailure) -> some View {
         let copy = failureCopy(failure, isLocal: localFailure)
-        return VStack(alignment: .leading, spacing: PaceSpace.inner) {
-            Text(copy.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(PaceColor.ink)
-            Text(copy.body).font(.system(size: 13)).foregroundStyle(PaceColor.ink2)
-            HStack(spacing: 10) {
-                Button(copy.primary) { primaryAction(failure) }
-                    .buttonStyle(PillChipStyle(selected: true))
-                if let secondary = copy.secondary {
-                    Button(secondary) { secondaryAction(failure) }
-                        .buttonStyle(PillChipStyle())
-                }
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(copy.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PaceColor.ink)
+            Text(copy.body)
+                .font(.system(size: 13))
+                .lineSpacing(3)
+                .foregroundStyle(PaceColor.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 8)
+            // 两颗按钮：放得下就并排，放不下就上下两行各自占满。
+            // 不缩字——字号是用户选的，为了塞进一行把字变小就是在他最需要看清的时候变小。
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { failureButtons(copy, failure, fill: false) }
+                VStack(spacing: 8) { failureButtons(copy, failure, fill: true) }
             }
+            .padding(.top, 16)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(20)
         .paceCardFill(18)
+    }
+
+    @ViewBuilder
+    private func failureButtons(_ copy: FailureCopy, _ failure: AiFailure, fill: Bool) -> some View {
+        Button { primaryAction(failure) } label: {
+            Text(copy.primary).frame(maxWidth: fill ? .infinity : nil)
+        }
+        .buttonStyle(GlassSecondaryStyle())
+        if let secondary = copy.secondary {
+            Button { secondaryAction(failure) } label: {
+                Text(secondary).frame(maxWidth: fill ? .infinity : nil)
+            }
+            .buttonStyle(GlassSecondaryStyle())
+        }
     }
 
     private struct FailureCopy {
@@ -353,7 +376,7 @@ struct AddView: View {
 
     private func failureCopy(_ failure: AiFailure, isLocal: Bool) -> FailureCopy {
         if isLocal {
-            // 本机规则自己没拆开：只留「手动记这笔」。
+            // 本机规则自己没拆开：只留「切到手动」。
             return FailureCopy(
                 title: Copy.Ai.Fail.LocalRule.title,
                 body: Copy.Ai.Fail.LocalRule.body,
@@ -385,27 +408,29 @@ struct AddView: View {
 
     private func primaryAction(_ failure: AiFailure) {
         let copy = failureCopy(failure, isLocal: localFailure)
-        switch copy.primary {
-        case Copy.Ai.Fail.KeyRejected.primary:
+        if copy.primary == Copy.Ai.Fail.KeyRejected.primary {
             dismiss()
-        case Copy.Ai.Fail.Offline.primary:
+        } else if copy.primary == Copy.Ai.Fail.Offline.primary {
             runLocal()
-        case Copy.Ai.Fail.Timeout.primary, Copy.Ai.Fail.Model.primary, Copy.Ai.Fail.LocalRule.primary:
-            goManualFromFailure()
-        default:
+        } else {
             goManualFromFailure()
         }
     }
 
+    /// 副按钮按它写的那句话办事，不按失败类型猜：
+    /// 「切到手动」就去手动，「用本机规则再试」才重拆。先前这里只看是不是本机失败，
+    /// 结果断网那张卡的「切到手动」按下去又去联网拆了一遍。
     private func secondaryAction(_ failure: AiFailure) {
-        if localFailure {
+        let copy = failureCopy(failure, isLocal: localFailure)
+        if copy.secondary == Copy.Ai.Fail.toManual {
             goManualFromFailure()
         } else {
             runLocal()
         }
     }
 
-    /// 手动记这笔：把用户原来那句话原样带进备注（备注已经写了就不动它）。
+    /// 切到手动：把用户原来那句话原样带进备注（备注已经写了就不动它）。
+    /// 输入框里那句不清，切回一句话还在。
     private func goManualFromFailure() {
         if note.isEmpty, !trimmed.isEmpty {
             note = trimmed
@@ -429,8 +454,10 @@ struct AddView: View {
 
         #if DEBUG
         // 调试构建里造出来的失败，只为把那几张卡看一眼；正式包里没有这段。
-        if DebugFaults.take(.keyRejected) { failure = .keyRejected; return }
-        if DebugFaults.take(.offline) { failure = .offline; return }
+        if DebugFaults.shared.take(.keyRejected) { failure = .keyRejected; return }
+        if DebugFaults.shared.take(.offline) { failure = .offline; return }
+        // 模型没整理出来那张是五张里最长、唯一带两颗按钮的，没人见过就先把它造出来。
+        if DebugFaults.shared.take(.model) { failure = .unreadable; return }
         #endif
 
         let sentence = trimmed
@@ -448,13 +475,9 @@ struct AddView: View {
             return
         }
 
-        let parsed = LocalDrafts.parse(text: sentence, todayIso: today)
-        if parsed.isEmpty {
-            localFailure = true
-            failure = .unreadable
-            return
-        }
-        present(parsed)
+        // 本机规则这条路只有 runLocal 一处：先前这里另写了一遍解析，
+        // 结果「本机规则拆不开」那个调试故障永远不触发——开关是开的，卡永远不出来。
+        runLocal()
     }
 
     /// 一笔且齐全就地确认；多笔或缺字段才去确认页。
@@ -477,7 +500,7 @@ struct AddView: View {
         inlineSaveFailed = false
         pumpedDraftId = nil
         #if DEBUG
-        if DebugFaults.take(.localRule) {
+        if DebugFaults.shared.take(.localRule) {
             localFailure = true
             failure = .unreadable
             return

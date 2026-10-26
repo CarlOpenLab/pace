@@ -136,18 +136,21 @@ enum Copy {
         /// 5. 失败与回退（五种）。正文末句「账本没有任何变化」是承诺，不可省略。
         enum Fail {
 
+            /// 失败卡上那条出路。和类型菜单那行一个字不差：一个动作不许有两个名。
+            static let toManual = "切到手动"
+
             /// 本机规则没读懂。
             enum LocalRule {
                 static let title = "这句话没拆开"
-                static let body = "本机规则只认常见的说法，比如「昨天午饭 28」。换个说法，或者手动记。账本没有任何变化。"
-                static let primary = "手动记这笔"
+                static let body = "本机规则只认常见的说法，比如「昨天午饭 28」。换个说法，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
             }
 
             /// 模型没读懂（返回的不是草稿、空结果）。
             enum Model {
                 static let title = "这次没整理出来"
-                static let body = "你填的服务没能把这句话拆成账单。换句话再说，或者手动记。账本没有任何变化。"
-                static let primary = "手动记这笔"
+                static let body = "你填的服务没能把这句话拆成账单。换句话再说，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
                 static let secondary = "用本机规则再试"
             }
 
@@ -156,14 +159,14 @@ enum Copy {
                 static let title = "连不上网"
                 static let body = "你填的服务要联网才能用。先在这台手机上拆也行。账本没有任何变化。"
                 static let primary = "用本机规则再试"
-                static let secondary = "手动记这笔"
+                static let secondary = toManual
             }
 
             /// 超时（20 秒）。
             enum Timeout {
                 static let title = "那边没回话"
-                static let body = "等太久了，这次不算。可以再试一次，或者手动记。账本没有任何变化。"
-                static let primary = "手动记这笔"
+                static let body = "等太久了，这次不算。可以再试一次，或者切到手动。账本没有任何变化。"
+                static let primary = toManual
                 static let secondary = "用本机规则再试"
             }
 

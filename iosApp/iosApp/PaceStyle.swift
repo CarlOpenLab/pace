@@ -251,6 +251,7 @@ struct GlassSecondaryStyle: ButtonStyle {
             .foregroundStyle(tint)
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
+            .frame(minHeight: 44)
             .glassEffect(.regular.interactive(), in: .capsule)
             .opacity(configuration.isPressed ? 0.85 : 1)
             .contentShape(Capsule())
