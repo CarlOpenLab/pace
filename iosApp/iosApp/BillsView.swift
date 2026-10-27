@@ -253,7 +253,7 @@ struct BillsView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(PaceColor.canvas)
-        .contentMargins(.bottom, PaceSpace.fabClearance, for: .scrollContent)
+        .clearsFab()
         .tracksFabScroll()
     }
 

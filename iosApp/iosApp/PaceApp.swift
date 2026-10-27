@@ -127,6 +127,8 @@ struct RootView: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         // 「记一笔」只包住按钮本身：一颗浮在底栏右上方的玻璃胶囊，不再用系统那条占满宽度的附件条。
+        // 试过改成 safeAreaInset（想让内容让开它）：位置落到标签栏上，反而压住了标签，
+        // 撤回来了。让开这条空间由各页自己给（见 FabClearance）。
         .overlay(alignment: .bottomTrailing) {
             if state.showsFab {
                 FloatingAddButton()

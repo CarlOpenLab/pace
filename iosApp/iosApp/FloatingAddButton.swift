@@ -68,3 +68,40 @@ extension View {
         modifier(FabScrollTracking())
     }
 }
+
+/// 「记一笔」压在内容上的那条空间，各页自己让开。
+///
+/// 为什么不在 TabView 上包 safeAreaInset：那样浮条会落到标签栏上，压住标签本身。
+/// 所以留给每一页：滚动内容的可视区到按钮上沿为止，停在顶上时正文不会被压；
+/// 多出来的内容滚一下看全（按钮在滚动时本来就会淡出）。
+///
+/// 缩的是滚动容器的**框**，不是内容的内距。内距只加滚动余量，内容照样画到按钮底下
+/// ——首页实测：预算卡的白底一直伸到按钮后面，停在顶上时字被压住。
+///
+/// 高度跟按钮一起长（同样的 15 点、1.5 倍封顶），不然最大档让得不够。
+/// 量的是卡片可见底边离按钮可见顶边的距离，不是行的框：行的框在卡片里还差 23 点，
+/// 压住眼睛的是卡片那条边。最大字号实测：不缩时卡片白底伸到按钮顶边下方 30 点；
+/// 缩 136 点后内容在最下面一行下面 28 点就停，按钮和它的阴影都不压东西。
+struct FabClearance: ViewModifier {
+    @ScaledMetric(relativeTo: .callout) private var scaled: CGFloat = 44
+
+    /// 玻璃按钮的可见高：常量写的 44，最大字号实测 58，多出来的 14 是玻璃那层。
+    private var fabHeight: CGFloat { min(scaled, 44 * 1.5) + 14 }
+
+    /// 滚动框底边到按钮底边之间那段固定的空（标签页栏让出来的），实测 50。
+    private let gapUnderFab: CGFloat = 50
+
+    /// 再留 6 点，卡片底边不贴着按钮的描边。
+    private var height: CGFloat { gapUnderFab + fabHeight + 6 }
+
+    func body(content: Content) -> some View {
+        content.padding(.bottom, height)
+    }
+}
+
+extension View {
+    /// 这一页有浮动的「记一笔」时，用它把那条空间让出来。
+    func clearsFab() -> some View {
+        modifier(FabClearance())
+    }
+}

@@ -78,14 +78,6 @@ enum PaceSpace {
     static let heroPadding: CGFloat = 22
     static let cardGap: CGFloat = 16
     static let inner: CGFloat = 12
-    /// 滚到底时给浮着的「记一笔」留出的余量。
-    ///
-    /// 量的是**卡片可见底边**（含 0.5 点描边）离**按钮可见顶边**的距离，不是行的框：
-    /// 行的框在卡片里还差 23 点，行底过关不等于卡片过关，压住眼睛的是卡片那条边。
-    /// 最大字号实测：76 → 卡片底边 695、按钮顶边 683，压住 12 点；
-    /// 100 → 691，压住 8 点；124 → 667，留出 16 点（正好压线）；128 → 663，留出 20 点。
-    /// 玻璃按钮可见框 58 点、常量写的 44，所以这个数只能用量出来的定，不能按常量算。
-    static let fabClearance: CGFloat = 128
 }
 
 enum PaceRadius {
