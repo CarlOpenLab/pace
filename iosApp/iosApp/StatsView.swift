@@ -60,14 +60,18 @@ struct StatsView: View {
     // MARK: - 范围与内容
 
     private var picker: some View {
-        // 同上：和记一笔、账单同一个组件，跟着字号长。
-        PaceSegmented(
-            options: StatsKind.allCases,
-            title: { $0.title },
-            selection: $kind,
-            // 跟账单同一句组名：不然读屏只念「本周」，听不出这个本周管的是哪一段。
-            groupLabel: Copy.Bills.rangeLabel
-        )
+        // 2026-10-27 换回系统 segmented（Carl 定）：要的是那颗真液态玻璃槽。
+        // 自绘的 PaceSegmented 玻璃被一层实色墨压住，画布是纯色时没有玻璃感。
+        // 代价：最大档下这一行不跟 Dynamic Type 长（量到字高 35，同屏正文 120）。
+        Picker(selection: $kind) {
+            ForEach(StatsKind.allCases) { kind in
+                Text(kind.title).tag(kind)
+            }
+        } label: {
+            EmptyView()
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel(Copy.Bills.rangeLabel)
         .frame(maxWidth: .infinity)
     }
 

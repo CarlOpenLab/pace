@@ -134,20 +134,22 @@ struct BillsView: View {
     // MARK: - 范围
 
     private var rangePicker: some View {
-        // 和记一笔页顶、统计页同一个组件。原来这里是系统 segmented：
-        // 最大档下它的字不跟着放大（量到 35，旁边正文 120），是全 App 唯一不跟字号走的一行。
-        PaceSegmented(
-            options: RangeKind.allCases,
-            title: { $0.title },
-            selection: $range,
-            groupLabel: Copy.Bills.rangeLabel
-        )
+        // 2026-10-27 换回系统 segmented（Carl 定）：要的是那颗真液态玻璃槽。
+        // 自绘的 PaceSegmented 玻璃被一层实色墨压住，画布是纯色时没有玻璃感。
+        // 代价：最大档下这一行不跟 Dynamic Type 长（量到字高 35，同屏正文 120）。
+        Picker(selection: $range) {
+            ForEach(RangeKind.allCases) { kind in
+                Text(kind.title).tag(kind)
+            }
+        } label: {
+            EmptyView()
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel(Copy.Bills.rangeLabel)
         .padding(.horizontal, PaceSpace.screen)
         // 上 8、下 12（DESIGN-switcher.md §2 的容器内距）。
         .padding(.top, 8)
         .padding(.bottom, 12)
-        // 组名只在组件里给一次（groupLabel）。外面再挂一条是同一个意思写两遍，
-        // 而且容器上的 label 有可能把里面三个段盖掉——靠实现细节活着的写法，删掉。
     }
 
     // MARK: - 内容与状态

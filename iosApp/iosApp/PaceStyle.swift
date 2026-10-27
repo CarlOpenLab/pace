@@ -42,26 +42,6 @@ enum PaceColor {
     static let danger = Color(light: 0xC0392B, dark: 0xFF8578)
     static let ai = Color(light: 0x5B3FD9, dark: 0xB9A6FF)
 
-    // 分段切换器（docs/DESIGN-switcher.md）：槽里压的墨、槽的描边、抬起来的选中块。
-    /// 亮色 7.5% 不是文档的 6%：玻璃本身会把底提亮约 3 个色阶，6% 压出来是 #EBEAEA，
-    /// 目标是 #E8E8E8。按目标色反推，别按百分比猜（同 divider 那条）。
-    /// 暗色不是压白 6%：玻璃在深底上会把槽提亮到 #39393A，目标是 #1B1B1C，只能往回收。
-    /// 实测 #39393A 压黑 53% 落到 ≈#1B1B1C。还是那句话：按目标色反推，别按百分比猜。
-    static let segSlotTint = Color(light: 0x000000, lightAlpha: 0.075, dark: 0x000000, darkAlpha: 0.40)
-    static let segSlotEdge = Color(light: 0x000000, lightAlpha: 0.12, dark: 0xFFFFFF, darkAlpha: 0.12)
-    /// 选中块：亮色是卡白；暗色比卡片 #1A1A1C 抬到 #2C2C2E，不然在槽里浮不起来。
-    /// 降低透明度时的实色槽：跟玻璃槽的目标色同一个值，换过去看不出跳。
-    static let segSlotSolid = Color(light: 0xE8E8E8, dark: 0x1B1B1C)
-    /// 暗色选中块取 #4D4D4E（Colo 定：白 22% 叠在槽上，对槽 2.04:1）。
-    /// 原来 #2C2C2E 只有 1.27:1——暗色下投影是黑的、压在黑底上等于没有，选中的唯一线索
-    /// 就剩那点亮度差，1.27 太薄。不取系统那颗的 #636366（2.87）：暗色卡面才 #1A1A1C，
-    /// 那么亮会像「另一个按钮」把白字抢走。按目标色取，不按百分比算。
-    static let segThumb = Color(light: 0xFFFFFF, dark: 0x4D4D4E)
-    /// 选中块的投影。暗色要重得多（45%）：浅投影在深底上等于没有。
-    static let segThumbShadow = Color(light: 0x000000, lightAlpha: 0.14, dark: 0x000000, darkAlpha: 0.50)
-    /// 暗色选中块的边（white 12%，对块面 1.3:1）：投影在暗色失效，靠这根边说明「那块是个东西」。
-    static let segThumbEdge = Color(light: 0x000000, lightAlpha: 0, dark: 0xFFFFFF, darkAlpha: 0.12)
-
     /// 中性底上的浅色块（状态胶囊、缺口标记）
     static var softFill: Color { Color(light: 0x000000, lightAlpha: 0.06, dark: 0xFFFFFF, darkAlpha: 0.10) }
     /// 一句话记账入口的浅紫底

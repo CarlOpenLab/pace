@@ -11,20 +11,23 @@ enum AddFillMode: Hashable {
 
 /// 页顶切换器（docs/DESIGN-add-mode-switch.md §1）。
 ///
-/// 2026-10-27：长相交给三处共用的 PaceSegmented，这里只留「哪两个值、叫什么」。
-/// 没换成系统 `.segmented`——它不跟字号长，最大档下量到它 35、旁边正文 120。
+/// 2026-10-27：换回系统 `.segmented`（Carl 定，和账单、统计一致）——要的是那颗真液态玻璃槽。
+/// 自绘的 PaceSegmented 玻璃被一层实色墨压住，画布是纯色时没有玻璃感。
+/// 代价：最大档下这一行不跟 Dynamic Type 长（量到字高 35，旁边正文 120）。
 /// 切换仍然只改 mode：输入框、草稿、解析结果都不重建。
 struct AddModeSwitcher: View {
     @Binding var mode: AddFillMode
 
     var body: some View {
-        PaceSegmented(
-            options: [AddFillMode.sentence, .manual],
-            title: { $0 == .sentence ? Copy.AddMode.sentence : Copy.AddMode.manual },
-            selection: $mode,
-            // 承诺要在按之前就听到：已经填的东西不会因为换填法丢掉。
-            hint: Copy.AddMode.switchHint
-        )
+        Picker(selection: $mode) {
+            Text(Copy.AddMode.sentence).tag(AddFillMode.sentence)
+            Text(Copy.AddMode.manual).tag(AddFillMode.manual)
+        } label: {
+            EmptyView()
+        }
+        .pickerStyle(.segmented)
+        // 承诺要在按之前就听到：已经填的东西不会因为换填法丢掉。
+        .accessibilityHint(Copy.AddMode.switchHint)
     }
 }
 
