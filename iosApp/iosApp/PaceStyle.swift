@@ -50,6 +50,8 @@ enum PaceColor {
     static let segSlotTint = Color(light: 0x000000, lightAlpha: 0.075, dark: 0x000000, darkAlpha: 0.40)
     static let segSlotEdge = Color(light: 0x000000, lightAlpha: 0.12, dark: 0xFFFFFF, darkAlpha: 0.12)
     /// 选中块：亮色是卡白；暗色比卡片 #1A1A1C 抬到 #2C2C2E，不然在槽里浮不起来。
+    /// 降低透明度时的实色槽：跟玻璃槽的目标色同一个值，换过去看不出跳。
+    static let segSlotSolid = Color(light: 0xE8E8E8, dark: 0x1B1B1C)
     static let segThumb = Color(light: 0xFFFFFF, dark: 0x2C2C2E)
     /// 选中块的投影。暗色要重得多（45%）：浅投影在深底上等于没有。
     static let segThumbShadow = Color(light: 0x000000, lightAlpha: 0.12, dark: 0x000000, darkAlpha: 0.45)

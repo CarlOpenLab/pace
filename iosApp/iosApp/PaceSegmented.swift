@@ -25,19 +25,29 @@ struct PaceSegmented<Value: Hashable>: View {
     private var slot: CGFloat { min(slotHeight, 44 * 1.6) }
     private var track: CGFloat { slot - 6 }
 
+    /// 降低透明度：glassEffect 会退回实底，那时槽没有「板」了——白胶囊会浮在半空。
+    /// 这一档显式给实色槽（亮 #E8E8E8、暗 #1B1B1C），描边、胶囊、投影照旧。
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     @Namespace private var selectionNS
 
     private var capsule: Capsule { Capsule(style: .continuous) }
 
     var body: some View {
         ZStack {
-            // 槽：玻璃在最底下。内容滚到它底下时照旧模糊。
-            capsule
-                .fill(.clear)
-                .glassEffect(.regular, in: .capsule)
-            // 压 6% 的墨：纯玻璃压在 #F7F7F7 上 ≈ #F5F5F5，白胶囊压上去只有 1.02:1，
-            // 选中块会化掉。压完 ≈ #E8E8E8，和系统那颗的槽 #E7E7E8 一个量级。
-            capsule.fill(PaceColor.segSlotTint)
+            if reduceTransparency {
+                // 没有玻璃可糊，就退成实色槽。6% 的墨这时也不需要了：实色就是那个色。
+                capsule.fill(PaceColor.segSlotSolid)
+            } else {
+                // 槽：玻璃在最底下。内容滚到它底下时照旧模糊。
+                capsule
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .capsule)
+                // 压一层墨：纯玻璃压在 #F7F7F7 上 ≈ #F5F5F5，白胶囊压上去只有 1.02:1，
+                // 选中块会化掉。压完 ≈ #E8E8E8，和系统那颗的槽 #E7E7E8 一个量级。
+                // 暗色压得多（40%），但玻璃还在：滚动时仍然看得见底下糊过去。
+                capsule.fill(PaceColor.segSlotTint)
+            }
             // 描边是「这是一块玻璃」的唯一静态线索：白底上玻璃本身没有形。
             capsule.strokeBorder(PaceColor.segSlotEdge, lineWidth: 0.5)
 
