@@ -141,7 +141,7 @@ enum Copy {
             static let offline = "手机没联网。连上网络再试。"
             static let badAddress = "这个地址打不开。" + Net.checkAddress
             static let certificate = "这台服务器的证书手机不认。" + Net.fixHTTP
-            static let server = "地址通了，是它那边出错了。待会儿再试。"
+            static let server = "地址通了，服务器那边出错了。待会儿再试。"
             static let modelRejected = "地址和 Key 都通了，你填的服务说这个模型用不了。换一个模型再试。"
             static let incomplete = "先把地址和 Key 填上，再把模型选上。"
             static let clearKey = "清空 Key"
@@ -215,7 +215,7 @@ enum Copy {
             /// 它收了这次请求但拒了内容（400/404/422 这些 4xx）：实测最常见的原因是模型名不对。
             enum ModelRejected {
                 static let title = "这个模型现在用不了"
-                static let body = "地址和 Key 都通了，你填的服务说这次请求给不出这个模型。回设置里从列表里挑一个，或者问给你这个地址的人。账本没有任何变化。"
+                static let body = "地址和 Key 都通了，你填的服务说这次请求给不出这个模型。回设置里从列表里挑一个，或者问给你这个地址的人要准确的模型名。账本没有任何变化。"
                 static let primary = "去设置"
                 static let secondary = toManual
             }

@@ -11,57 +11,20 @@ enum AddFillMode: Hashable {
 
 /// 页顶切换器（docs/DESIGN-add-mode-switch.md §1）。
 ///
-/// 外观是 34 高的胶囊，但每个按钮的点击区撑到 44：34 只够看，不够手指点。
-/// 外面的 AddView 用 3 + 7 的上下留白把视觉位置补回设计稿的 8 / 12。
+/// 2026-10-27：长相交给三处共用的 PaceSegmented，这里只留「哪两个值、叫什么」。
+/// 没换成系统 `.segmented`——它不跟字号长，最大档下量到它 35、旁边正文 120。
+/// 切换仍然只改 mode：输入框、草稿、解析结果都不重建。
 struct AddModeSwitcher: View {
     @Binding var mode: AddFillMode
 
-    /// 槽高 44、内距 3、段高 38（Colo 2.3.1，Carl 定的玻璃切换）。
-    /// 跟着字号按 1.6 倍封顶长——默认字号就是原来的 44/38。
-    @ScaledMetric(relativeTo: .subheadline) private var slotHeight: CGFloat = 44
-
-    private var slot: CGFloat { min(slotHeight, 44 * 1.6) }
-    private var track: CGFloat { slot - 6 }
-
-    @Namespace private var selection
-
     var body: some View {
-        HStack(spacing: 0) {
-            segment(.sentence, title: Copy.AddMode.sentence)
-            segment(.manual, title: Copy.AddMode.manual)
-        }
-        .padding(3)
-        .frame(height: slot)
-        // 只有槽是玻璃：选中那一段仍是实底。两段都在玻璃上，就再也看不出选的是哪个。
-        .glassEffect(.regular, in: .capsule)
-        .animation(.easeOut(duration: 0.18), value: mode)
-    }
-
-    private func segment(_ value: AddFillMode, title: String) -> some View {
-        Button {
-            mode = value
-        } label: {
-            Text(title)
-                .paceFont(15, .semibold)
-                .foregroundStyle(mode == value ? PaceColor.onAccent : PaceColor.ink2)
-                .lineLimit(1)
-                // 不再压字号：minimumScaleFactor(0.85) 就是把用户选的字按回去。
-                .frame(maxWidth: .infinity)
-                .frame(height: track)
-                .background(alignment: .center) {
-                    if mode == value {
-                        Capsule(style: .continuous)
-                            .fill(PaceColor.accent)
-                            .matchedGeometryEffect(id: "selected", in: selection)
-                    }
-                }
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(title))
-        // 承诺要在按之前就听到：两边都带，不只在当前那一边。
-        .accessibilityHint(Text(Copy.AddMode.switchHint))
-        .accessibilityAddTraits(mode == value ? .isSelected : [])
+        PaceSegmented(
+            options: [AddFillMode.sentence, .manual],
+            title: { $0 == .sentence ? Copy.AddMode.sentence : Copy.AddMode.manual },
+            selection: $mode,
+            // 承诺要在按之前就听到：已经填的东西不会因为换填法丢掉。
+            hint: Copy.AddMode.switchHint
+        )
     }
 }
 

@@ -59,14 +59,12 @@ struct StatsView: View {
     // MARK: - 范围与内容
 
     private var picker: some View {
-        Picker(selection: $kind) {
-            ForEach(StatsKind.allCases) { kind in
-                Text(kind.title).tag(kind)
-            }
-        } label: {
-            EmptyView()
-        }
-        .pickerStyle(.segmented)
+        // 同上：和记一笔、账单同一个组件，跟着字号长。
+        PaceSegmented(
+            options: StatsKind.allCases,
+            title: { $0.title },
+            selection: $kind
+        )
         .frame(maxWidth: .infinity)
     }
 

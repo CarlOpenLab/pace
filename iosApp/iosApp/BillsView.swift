@@ -134,17 +134,17 @@ struct BillsView: View {
     // MARK: - 范围
 
     private var rangePicker: some View {
-        Picker(selection: $range) {
-            ForEach(RangeKind.allCases) { kind in
-                Text(kind.title).tag(kind)
-            }
-        } label: {
-            Text(Copy.Bills.rangeLabel)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+        // 和记一笔页顶、统计页同一个组件。原来这里是系统 segmented：
+        // 最大档下它的字不跟着放大（量到 35，旁边正文 120），是全 App 唯一不跟字号走的一行。
+        PaceSegmented(
+            options: RangeKind.allCases,
+            title: { $0.title },
+            selection: $range,
+            groupLabel: Copy.Bills.rangeLabel
+        )
         .padding(.horizontal, PaceSpace.screen)
-        .padding(.top, 4)
+        // 上 8、下 12（DESIGN-switcher.md §2 的容器内距）。
+        .padding(.top, 8)
         .padding(.bottom, 12)
         .accessibilityLabel(Text(Copy.Bills.rangeLabel))
     }
