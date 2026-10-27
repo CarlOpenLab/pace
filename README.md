@@ -3,7 +3,7 @@
 **Know what you can spend today.**
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.3-blue)
 ![Android CI](https://github.com/CarlOpenLab/pace/actions/workflows/android.yml/badge.svg)
 ![iOS CI](https://github.com/CarlOpenLab/pace/actions/workflows/ios.yml/badge.svg)
 
@@ -16,11 +16,11 @@ Product landing page: <https://carlopenlab.github.io/pace/>
 - **Daily budget, honestly computed.** Today's remaining = budget − the net spend you chose to count today. No rollover unless you opt in; editing a budget never rewrites history; the budget engine needs no network and no AI.
 - **Logging that takes seconds.** A floating *Add* button, optional one-sentence AI drafts that you always confirm before anything is written, refunds linked to the bill they reverse, transfers and card repayments kept out of spend.
 - **Local-first and private.** No account, no cloud ledger, no analytics. Full-fidelity, versioned JSON export at any time. See [docs/AI_PRIVACY.md](docs/AI_PRIVACY.md).
-- **One shared core.** Both clients share the budget engine, money rules, date attribution, import/export, and duplicate detection from a single Kotlin Multiplatform module, so the two platforms never disagree. Its fixed acceptance suite (48 tests) lives in `shared/src/commonTest` and [docs/EDGE_CASES.md](docs/EDGE_CASES.md).
+- **One shared core.** Both clients share the budget engine, money rules, date attribution, import/export, and duplicate detection from a single Kotlin Multiplatform module, so the two platforms never disagree. Its fixed acceptance suite (60 tests) lives in `shared/src/commonTest` and [docs/EDGE_CASES.md](docs/EDGE_CASES.md).
 
 Product and technical planning: [PLAN.md](PLAN.md). Cross-platform contracts: [docs/](docs/).
 
-> Pace is in active development (v0.1.0). There is no store listing yet — installable builds come straight from CI.
+> Pace is in active development (v0.1.3). There is no store listing yet — installable builds come straight from CI.
 
 ## Repository structure
 

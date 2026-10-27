@@ -3,7 +3,7 @@
 **Know what you can spend today.**
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.3-blue)
 ![Android CI](https://github.com/CarlOpenLab/pace/actions/workflows/android.yml/badge.svg)
 ![iOS CI](https://github.com/CarlOpenLab/pace/actions/workflows/ios.yml/badge.svg)
 
@@ -16,11 +16,11 @@
 - **预算诚实计算。** 今日剩余 = 今日预算 − 计入预算的净支出；当日结余默认不结转、超支不自动扣减明日；改预算从指定生效日开始，不重写历史；预算引擎不依赖网络和 AI。
 - **记账只要几秒。** 浮起的「记一笔」；AI 可把一句话变成账单草稿，但写入前必须经你确认；退款关联原账单避免重复计算；转账与信用卡还款不计入消费。
 - **本地优先，隐私默认。** 无账号、无云端账本、无埋点。随时导出带版本号的完整 JSON，见 [docs/AI_PRIVACY.md](docs/AI_PRIVACY.md)。
-- **一个共享核心。** 两端共享同一个 Kotlin Multiplatform 模块：预算计算、金额规则、日期归属、导入导出、指纹去重，保证 Android 和 iOS 结果一致。固定验收案例（48 个测试）在 `shared/src/commonTest` 与 [docs/EDGE_CASES.md](docs/EDGE_CASES.md)。
+- **一个共享核心。** 两端共享同一个 Kotlin Multiplatform 模块：预算计算、金额规则、日期归属、导入导出、指纹去重，保证 Android 和 iOS 结果一致。固定验收案例（60 个测试）在 `shared/src/commonTest` 与 [docs/EDGE_CASES.md](docs/EDGE_CASES.md)。
 
 产品与技术规划见 [PLAN.md](PLAN.md)，跨端契约见 [docs/](docs/)。
 
-> Pace 处于开发阶段（v0.1.0），暂无应用商店上架——可直接安装的构建产物来自 CI。
+> Pace 处于开发阶段（v0.1.3），暂无应用商店上架——可直接安装的构建产物来自 CI。
 
 ## 仓库结构
 
