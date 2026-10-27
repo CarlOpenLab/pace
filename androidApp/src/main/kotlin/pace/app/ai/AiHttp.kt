@@ -81,8 +81,9 @@ object AiHttp {
             is SSLException -> NetworkKind.CERTIFICATE
             is UnknownHostException -> NetworkKind.BAD_ADDRESS
             is java.net.SocketTimeoutException ->
-                // iOS 同款：超时单独成类，对话路径报「那边没回话」，模型列表路径归兜底。
-                NetworkKind.TIMEOUT
+                // 连接阶段超时＝连不上这个地址；读超时＝服务器收了请求没回话（「那边没回话」）。
+                if (e.message?.contains("connect", ignoreCase = true) == true) NetworkKind.UNREACHABLE
+                else NetworkKind.TIMEOUT
             is java.net.ConnectException -> NetworkKind.UNREACHABLE
             else -> when {
                 e.message?.contains("Network is unreachable", ignoreCase = true) == true -> NetworkKind.OFFLINE

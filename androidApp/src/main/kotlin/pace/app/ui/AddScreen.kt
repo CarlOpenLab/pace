@@ -39,6 +39,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -119,6 +121,8 @@ fun AddScreen(
     var savingInline by remember { mutableStateOf(false) }
     /** 就地草稿卡的字段是可变对象上的改动；bump 它让卡片重读金额。 */
     var inlineRevision by remember { mutableStateOf(0) }
+    // spec §8.1：点主按钮进这一页，键盘直接起
+    val sentenceFocus = remember { FocusRequester() }
     /** 非空表示这次重复来自一句话的「记上」。 */
     var duplicateDraft by remember { mutableStateOf<DraftItem?>(null) }
 
@@ -314,6 +318,9 @@ fun AddScreen(
                     placeholder = { Text(PaceCopy.Ai.Input.placeholder) },
                     singleLine = true,
                     enabled = !busy && sentenceDraft == null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(sentenceFocus),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,
                         imeAction = if (trimmed.isEmpty() || !AiSettings.usesRemoteModel) ImeAction.Done else ImeAction.Send
@@ -323,9 +330,15 @@ fun AddScreen(
                         focusedBorderColor = Color.Transparent,
                         unfocusedBorderColor = Color.Transparent,
                         disabledBorderColor = Color.Transparent
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                    )
                 )
+            }
+
+            LaunchedEffect(Unit) {
+                if (sentenceDraft == null) {
+                    kotlinx.coroutines.delay(250)
+                    runCatching { sentenceFocus.requestFocus() }
+                }
             }
 
             if (busy) {
