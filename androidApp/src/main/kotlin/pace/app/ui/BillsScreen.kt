@@ -80,7 +80,9 @@ fun BillsScreen(onOpenTxn: (String) -> Unit, onAdd: () -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    // Box 包一层把 Snackbar 钉在底部：直接放在 NavHost 的容器里会顶到左上角
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         OutlinedTextField(
             value = keyword,
             onValueChange = { keyword = it },
@@ -175,6 +177,12 @@ fun BillsScreen(onOpenTxn: (String) -> Unit, onAdd: () -> Unit) {
                 }
             }
         }
+        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(androidx.compose.ui.Alignment.BottomCenter)
+                .padding(16.dp)
+        )
     }
-    SnackbarHost(hostState = snackbarHostState)
 }

@@ -50,7 +50,8 @@ private val typeOptions = listOf(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AddScreen(txnId: String?, onDone: () -> Unit) {
-    val editing: Transaction? = txnId?.let { AppContainer.ledger.transaction(it) }
+    // remember(txnId)：编辑态只在打开时查一次库，不跟着每次重组（每个按键）重查
+    val editing: Transaction? = remember(txnId) { txnId?.let { AppContainer.ledger.transaction(it) } }
     var type by remember { mutableStateOf(editing?.type ?: TxnType.EXPENSE) }
     var amountText by remember { mutableStateOf(editing?.let { pace.shared.money.Money.formatMinor(it.amountMinor) } ?: "") }
     var category by remember { mutableStateOf(editing?.category ?: "餐饮") }
@@ -66,6 +67,23 @@ fun AddScreen(txnId: String?, onDone: () -> Unit) {
     val expensesForRefund = remember {
         AppContainer.ledger.allTransactions().filter { it.type == TxnType.EXPENSE }
     }
+
+    // 手动保存与「仍然保存」共用同一份输入构造，forceSave 是唯一差别
+    fun buildSaveInput(forceSave: Boolean = false) = SaveTxnInput(
+        id = editing?.id,
+        type = type,
+        amountText = amountText,
+        currency = "CNY",
+        category = category,
+        account = account,
+        note = note,
+        occurredAtEpochMillis = editing?.occurredAtEpochMillis ?: 0L,
+        localDate = localDate,
+        timezoneId = AppContainer.timezoneId,
+        countInBudget = countInBudget,
+        refundOfId = refundOfId,
+        forceSave = forceSave
+    )
 
     Column(
         modifier = Modifier
@@ -207,21 +225,7 @@ fun AddScreen(txnId: String?, onDone: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = {
-                    val input = SaveTxnInput(
-                        id = editing?.id,
-                        type = type,
-                        amountText = amountText,
-                        currency = "CNY",
-                        category = category,
-                        account = account,
-                        note = note,
-                        occurredAtEpochMillis = editing?.occurredAtEpochMillis ?: 0L,
-                        localDate = localDate,
-                        timezoneId = AppContainer.timezoneId,
-                        countInBudget = countInBudget,
-                        refundOfId = refundOfId
-                    )
-                    val result: SaveResult = AppContainer.ledger.saveTransaction(input)
+                    val result: SaveResult = AppContainer.ledger.saveTransaction(buildSaveInput())
                     if (result.isSuccess) {
                         onDone()
                     } else if (result.errorCode == ErrorCodes.DUPLICATE_FINGERPRINT) {
@@ -245,23 +249,7 @@ fun AddScreen(txnId: String?, onDone: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmDuplicate = false
-                    val retry = AppContainer.ledger.saveTransaction(
-                        SaveTxnInput(
-                            id = editing?.id,
-                            type = type,
-                            amountText = amountText,
-                            currency = "CNY",
-                            category = category,
-                            account = account,
-                            note = note,
-                            occurredAtEpochMillis = editing?.occurredAtEpochMillis ?: 0L,
-                            localDate = localDate,
-                            timezoneId = AppContainer.timezoneId,
-                            countInBudget = countInBudget,
-                            refundOfId = refundOfId,
-                            forceSave = true
-                        )
-                    )
+                    val retry = AppContainer.ledger.saveTransaction(buildSaveInput(forceSave = true))
                     if (retry.isSuccess) onDone() else error = describeError(retry.errorCode)
                 }) { Text("仍然保存") }
             },
