@@ -78,24 +78,48 @@ extension View {
 /// 缩的是滚动容器的**框**，不是内容的内距。内距只加滚动余量，内容照样画到按钮底下
 /// ——首页实测：预算卡的白底一直伸到按钮后面，停在顶上时字被压住。
 ///
-/// 高度跟按钮一起长（同样的 15 点、1.5 倍封顶），不然最大档让得不够。
-/// 量的是卡片可见底边离按钮可见顶边的距离，不是行的框：行的框在卡片里还差 23 点，
-/// 压住眼睛的是卡片那条边。最大字号实测：不缩时卡片白底伸到按钮顶边下方 30 点；
-/// 缩 136 点后内容在最下面一行下面 28 点就停，按钮和它的阴影都不压东西。
+/// 切边不能是硬的：卡片白底在屏中间被一条直线剁掉，字的上半截没了。所以切线上留 8 点，
+/// 在里头做淡出，和记一笔页顶边接缝同一个值、同一套写法（`mask` + `LinearGradient`），
+/// 不用系统的滚动边缘效果——它连模糊一起加，这底下没有东西可糊，糊出来是假的。
+///
+/// 淡出只在下面确实还有内容被裁的时候出现：装得下不淡、滚到底也不淡，
+/// 不然最后一张卡会永远半透明。淡的是内容（挂在这层 mask 上），按钮在它外面，不受影响。
+///
+/// 数（iPhone 18 Pro，最大档，扫像素量）：滚动框底边 791；按钮可见框 683.7 … 741
+/// （默认档和最大档一样高——按钮自己的字号封顶 1.5）；框底到按钮底 50。
+/// 所以让开 = 50 + 58 + 8 = 116，切线落在 675，离按钮上沿 8.7。
 struct FabClearance: ViewModifier {
-    @ScaledMetric(relativeTo: .callout) private var scaled: CGFloat = 44
-
-    /// 玻璃按钮的可见高：常量写的 44，最大字号实测 58，多出来的 14 是玻璃那层。
-    private var fabHeight: CGFloat { min(scaled, 44 * 1.5) + 14 }
-
-    /// 滚动框底边到按钮底边之间那段固定的空（标签页栏让出来的），实测 50。
+    private let fabHeight: CGFloat = 58
     private let gapUnderFab: CGFloat = 50
+    private let seam: CGFloat = 8
 
-    /// 再留 6 点，卡片底边不贴着按钮的描边。
-    private var height: CGFloat { gapUnderFab + fabHeight + 6 }
+    /// 下面还有内容没露出来（滚动位置不在底）。
+    @State private var moreBelow = false
+
+    private var height: CGFloat { gapUnderFab + fabHeight + seam }
 
     func body(content: Content) -> some View {
-        content.padding(.bottom, height)
+        content
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height - geometry.contentOffset.y - geometry.containerSize.height > 0.5
+            } action: { _, below in
+                moreBelow = below
+            }
+            .mask {
+                if moreBelow {
+                    VStack(spacing: 0) {
+                        Color.black
+                        LinearGradient(
+                            colors: [.black, PaceColor.canvas.opacity(0)],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .frame(height: seam)
+                    }
+                } else {
+                    Color.black
+                }
+            }
+            .padding(.bottom, height)
     }
 }
 
