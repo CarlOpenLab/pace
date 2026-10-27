@@ -125,6 +125,8 @@ struct RootView: View {
                 SettingsView()
             }
         }
+        // 根上先铺画布色：第一帧之前（以及两页交替的瞬间）窗口是系统白，会闪一下。
+        .background(PaceColor.canvas.ignoresSafeArea())
         .tabBarMinimizeBehavior(.onScrollDown)
         // 「记一笔」只包住按钮本身：一颗浮在底栏右上方的玻璃胶囊，不再用系统那条占满宽度的附件条。
         // 试过改成 safeAreaInset（想让内容让开它）：位置落到标签栏上，反而压住了标签，

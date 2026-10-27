@@ -39,8 +39,9 @@
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict>
+		<!-- 启动图和画布同色：空值会落到系统白，真机上从点图标到首帧露出来的就是这道白。 -->
 		<key>UIColorName</key>
-		<string></string>
+		<string>LaunchBackground</string>
 	</dict>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
