@@ -24,6 +24,9 @@ jobs:
       - name: Shared core unit tests (budget / money / import / fingerprint)
         run: ./gradlew :shared:testDebugUnitTest --console=plain
 
+      - name: Android app unit tests (BYOK draft mapping / provider URLs)
+        run: ./gradlew :androidApp:testDebugUnitTest --console=plain
+
       - name: Build debug APK
         run: ./gradlew :androidApp:assembleDebug --console=plain
 
