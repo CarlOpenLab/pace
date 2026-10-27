@@ -230,4 +230,18 @@ class LedgerApiIntegrationTest {
         assertEquals("餐饮", api.suggestCategory("午饭 28", TxnType.EXPENSE))
         assertEquals("其他", api.suggestCategory(" ", TxnType.EXPENSE))
     }
+
+    @Test
+    fun search_treats_like_wildcards_as_literals() {
+        api.saveTransaction(saveInput(note = "满100减20"))
+        api.saveTransaction(saveInput(note = "折扣100%"))
+        api.saveTransaction(saveInput(note = "a_b"))
+        api.saveTransaction(saveInput(note = "axb"))
+        // % 与 _ 是通配符：字面搜索不该扩大命中范围
+        assertEquals(1, api.searchTransactions("100%").size)
+        assertEquals(1, api.searchTransactions("满100").size)
+        assertEquals(1, api.searchTransactions("a_b").size)
+        assertEquals(1, api.searchTransactions("axb").size)
+        assertEquals(0, api.searchTransactions("").size)
+    }
 }

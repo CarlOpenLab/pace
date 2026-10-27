@@ -49,12 +49,20 @@ object Exporters {
 
     fun exportJson(envelope: LedgerEnvelope): String = exportJson.encodeToString(LedgerEnvelope.serializer(), envelope)
 
-    /** RFC 4180 转义（I4）：含逗号/引号/换行时用双引号包裹，内部引号翻倍。 */
+    /**
+     * RFC 4180 转义（I4）：含逗号/引号/换行时用双引号包裹，内部引号翻倍。
+     * 另做公式注入防护：以 = + @ Tab CR 开头的单元格补一个前导单引号，
+     * 防止导入文件带来的备注在 Excel 打开时被当公式执行（docs/EXPORT_FORMAT.md §3）。
+     * 不处理 `-` 开头：负数金额是合法数字字面量，加引号反而破坏展示。
+     */
     fun csvEscape(field: String): String {
         val needsQuote = field.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
         val escaped = field.replace("\"", "\"\"")
-        return if (needsQuote) "\"$escaped\"" else escaped
+        val neutralized = if (escaped.isNotEmpty() && escaped.first() in FORMULA_PREFIXES) "'$escaped" else escaped
+        return if (needsQuote) "\"$neutralized\"" else neutralized
     }
+
+    private val FORMULA_PREFIXES = charArrayOf('=', '+', '@', '\t', '\r')
 
     fun exportCsv(transactions: List<Transaction>): String {
         val lines = mutableListOf(CSV_HEADER.joinToString(","))

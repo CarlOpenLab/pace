@@ -97,6 +97,22 @@ class ExportImportTest {
     }
 
     @Test
+    fun i4_csv_formula_injection_neutralized() {
+        // 导出的 CSV 会被 Excel 打开：以 = + @ Tab CR 开头的文本不能原样出去
+        assertEquals("'=cmd", Exporters.csvEscape("=cmd"))
+        assertEquals("'+SUM(A1)", Exporters.csvEscape("+SUM(A1)"))
+        assertEquals("'@x", Exporters.csvEscape("@x"))
+        assertEquals("'\tx", Exporters.csvEscape("\tx"))
+        // \r 本身触发 RFC 4180 加引号
+        assertEquals("\"'\rx\"", Exporters.csvEscape("\rx"))
+        // 负数金额是合法数字字面量，不处理
+        assertEquals("-12.34", Exporters.csvEscape("-12.34"))
+        // 普通文本和数字不受影响
+        assertEquals("满100减20", Exporters.csvEscape("满100减20"))
+        assertEquals("28.50", Exporters.csvEscape("28.50"))
+    }
+
+    @Test
     fun csv_output_shape() {
         val csv = Exporters.exportCsv(
             listOf(txn("a", amountMinor = 2850, localDate = "2026-10-25", note = "午饭,团建"))

@@ -38,7 +38,7 @@ SELECT * FROM transactions WHERE fingerprint = ? LIMIT 1;
 
 searchByKeyword:
 SELECT * FROM transactions
-WHERE category LIKE ? OR note LIKE ? OR account LIKE ?
+WHERE category LIKE ? ESCAPE '\' OR note LIKE ? ESCAPE '\' OR account LIKE ? ESCAPE '\'
 ORDER BY occurredAtEpochMillis DESC, id;
 
 insertOrReplace:

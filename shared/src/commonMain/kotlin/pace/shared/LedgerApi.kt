@@ -96,8 +96,14 @@ class LedgerApi internal constructor(
     fun allTransactions(): List<Transaction> =
         database.transactionsQueries.selectAll().executeAsList().map { it.toModel() }
 
+    /** 关键字里转义 LIKE 通配符（% _ \），让「100%」搜的是字面量而不是任意串。 */
+    private fun escapeLike(keyword: String): String =
+        keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
     fun searchTransactions(keyword: String): List<Transaction> {
-        val pattern = "%${keyword.trim()}%"
+        val trimmed = keyword.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val pattern = "%${escapeLike(trimmed)}%"
         return database.transactionsQueries.searchByKeyword(pattern, pattern, pattern)
             .executeAsList().map { it.toModel() }
     }

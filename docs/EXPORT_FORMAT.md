@@ -63,6 +63,7 @@ id,date,time,type,amount,currency,category,account,note,count_in_budget,refund_o
 
 - `date` = `localDate`；`time` = 发生时间的 `HHmmss`（按账单保存的 `timezoneId` 还原，不按导出设备时区）。
 - `type` 大写枚举；`amount` 为十进制展示（两位小数）；`count_in_budget` 为 `true/false`；空值导出空串。
+- 公式注入防护：以 `=`、`+`、`@`、Tab、CR 开头的文本单元格，导出时补一个前导单引号，防止在 Excel 里被当公式执行（`-` 开头不处理：负数金额是合法数字字面量）。
 - CSV 定位是「查看与交换」，**不承诺**恢复预算关联等完整信息；恢复一律走 JSON。
 
 ## 4. JSON 导入（恢复）
