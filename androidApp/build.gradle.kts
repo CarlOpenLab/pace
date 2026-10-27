@@ -34,6 +34,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,5 +55,8 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
 
+    // org.json 在 JVM 单测里是 android.jar 的抛异常桩；测试域里给一份真实现，
+    // 让 AiDraftClient 的解析纯函数可以直接跑 :androidApp:testDebugUnitTest
+    testImplementation("org.json:json:20240303")
     testImplementation(libs.junit)
 }

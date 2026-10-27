@@ -25,5 +25,6 @@ class PaceApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AppContainer.init(this)
+        pace.app.ai.AiSettings.init(this)
     }
 }

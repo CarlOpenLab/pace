@@ -192,7 +192,7 @@ private fun TodayCard(data: TodayOverview, onOpenTxn: (String) -> Unit) {
                 Column {
                     Text("今天还没有账单", style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "飞行模式也能完整记账",
+                        pace.app.ai.PaceCopy.Home.emptySubtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -28,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -157,9 +158,36 @@ fun PaceApp() {
                         }
                     )
                 ) { entry ->
+                    val reviewResult = entry.savedStateHandle
+                        .getStateFlow<pace.app.ui.ManualPrefill?>("review_prefill", null)
+                        .collectAsState()
                     AddScreen(
                         txnId = entry.arguments?.getString("txnId"),
-                        onDone = { navController.popBackStack() }
+                        onDone = { navController.popBackStack() },
+                        onOpenReview = { drafts ->
+                            navController.currentBackStackEntry?.savedStateHandle
+                                ?.set("review_drafts", ArrayList(drafts))
+                            navController.navigate("review")
+                        },
+                        reviewResult = reviewResult.value,
+                        onConsumeReviewResult = {
+                            entry.savedStateHandle["review_prefill"] = null
+                        }
+                    )
+                }
+                composable("review") { entry ->
+                    val drafts = entry.savedStateHandle
+                        .get<ArrayList<pace.app.ai.DraftItem>>("review_drafts")
+                        .orEmpty()
+                    pace.app.ui.DraftReviewScreen(
+                        initialDrafts = drafts,
+                        onDone = { navController.popBackStack("home", inclusive = false) },
+                        onBack = { navController.popBackStack() },
+                        onSwitchManual = { prefill ->
+                            navController.previousBackStackEntry?.savedStateHandle
+                                ?.set("review_prefill", prefill)
+                            navController.popBackStack()
+                        }
                     )
                 }
             }

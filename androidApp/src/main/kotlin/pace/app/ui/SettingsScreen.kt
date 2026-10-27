@@ -170,18 +170,7 @@ fun SettingsScreen() {
         }
 
         Spacer(Modifier.height(16.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("隐私与 AI", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "· 当前为本地隐私模式：账本内容不离开设备。\n" +
-                        "· AI 功能默认关闭，记账与统计完全不依赖 AI。\n" +
-                        "· AI 仅用于把你的输入整理成待确认草稿，永不直接修改账本。",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
+        SettingsAiSection()
 
         Spacer(Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
