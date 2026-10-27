@@ -79,8 +79,12 @@ extension View {
 /// ——首页实测：预算卡的白底一直伸到按钮后面，停在顶上时字被压住。
 ///
 /// 切边不能是硬的：卡片白底在屏中间被一条直线剁掉，字的上半截没了。所以切线上留 8 点，
-/// 在里头做淡出，和记一笔页顶边接缝同一个值、同一套写法（`mask` + `LinearGradient`），
-/// 不用系统的滚动边缘效果——它连模糊一起加，这底下没有东西可糊，糊出来是假的。
+/// 在里头做淡出，和记一笔页顶边接缝同一个 8 点、同一条 canvas 渐变，不用系统的滚动边缘效果
+/// ——它连模糊一起加，这底下没有东西可糊，糊出来是假的。
+///
+/// 画在**画布色的 overlay** 里，不是 `mask`：给滚动视图套 mask 会多出一层合成层，
+/// 统计页那种「滚动视图就是导航栏大标题的跟随对象」的页面会被打断——大标题在无障碍树里还在
+/// （y=120），屏幕上却什么都没画，内容也整体上移。见 ScrollTopFade 的注释。
 ///
 /// 淡出只在下面确实还有内容被裁的时候出现：装得下不淡、滚到底也不淡，
 /// 不然最后一张卡会永远半透明。淡的是内容（挂在这层 mask 上），按钮在它外面，不受影响。
@@ -105,18 +109,14 @@ struct FabClearance: ViewModifier {
             } action: { _, below in
                 moreBelow = below
             }
-            .mask {
+            .overlay(alignment: .bottom) {
                 if moreBelow {
-                    VStack(spacing: 0) {
-                        Color.black
-                        LinearGradient(
-                            colors: [.black, PaceColor.canvas.opacity(0)],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                        .frame(height: seam)
-                    }
-                } else {
-                    Color.black
+                    LinearGradient(
+                        colors: [PaceColor.canvas.opacity(0), PaceColor.canvas],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: seam)
+                    .allowsHitTesting(false)
                 }
             }
             .padding(.bottom, height)
@@ -125,8 +125,13 @@ struct FabClearance: ViewModifier {
 
 /// 顶边 8 点渐隐：内容往上滚、第一行钻到导航栏底下才开始淡，滚回顶部就收掉。
 ///
-/// 写法和记一笔页顶边、以及底边那条接缝同一套（`mask` + `LinearGradient`，8 点）。
-/// 停在顶部时不能淡：第一张卡的顶边发灰是另一个毛病。
+/// 和底边那条接缝同一个 8 点、同一条 canvas 渐变；停在顶部时不能淡（第一张卡顶边发灰是另一个毛病）。
+///
+/// 用 overlay 画画布色渐变，**不能用 mask**：mask 会给滚动视图套一层合成层，
+/// 统计页那种把 ScrollView 直接交给 NavigationStack、由它驱动大标题收放的页面会被打断
+/// （实测：大标题在无障碍树里 y=120 还在，屏幕上一个字都不画，内容整体上移，偶尔整页白）。
+/// 渐变顶层是画布色、底层全透明，视觉上和 mask 一样，但不改滚动视图本身的结构。
+/// 渐变挂 `allowsHitTesting(false)`，不吃点击。
 struct ScrollTopFade: ViewModifier {
     private let seam: CGFloat = 8
     @State private var scrolled = false
@@ -138,18 +143,14 @@ struct ScrollTopFade: ViewModifier {
             } action: { _, up in
                 scrolled = up
             }
-            .mask {
+            .overlay(alignment: .top) {
                 if scrolled {
-                    VStack(spacing: 0) {
-                        LinearGradient(
-                            colors: [PaceColor.canvas.opacity(0), .black],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                        .frame(height: seam)
-                        Color.black
-                    }
-                } else {
-                    Color.black
+                    LinearGradient(
+                        colors: [PaceColor.canvas, PaceColor.canvas.opacity(0)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: seam)
+                    .allowsHitTesting(false)
                 }
             }
     }
