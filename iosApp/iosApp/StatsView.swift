@@ -40,6 +40,7 @@ struct StatsView: View {
                 // 给底栏上方的系统「记一笔」附件留出滚动余量
                 .padding(.bottom, 100)
             }
+            .fadesScrollTop()
             .paceScreen()
             .navigationTitle(Copy.Stats.title)
         }

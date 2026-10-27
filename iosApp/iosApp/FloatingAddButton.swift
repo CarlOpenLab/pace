@@ -123,9 +123,48 @@ struct FabClearance: ViewModifier {
     }
 }
 
+/// 顶边 8 点渐隐：内容往上滚、第一行钻到导航栏底下才开始淡，滚回顶部就收掉。
+///
+/// 写法和记一笔页顶边、以及底边那条接缝同一套（`mask` + `LinearGradient`，8 点）。
+/// 停在顶部时不能淡：第一张卡的顶边发灰是另一个毛病。
+struct ScrollTopFade: ViewModifier {
+    private let seam: CGFloat = 8
+    @State private var scrolled = false
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 0.5
+            } action: { _, up in
+                scrolled = up
+            }
+            .mask {
+                if scrolled {
+                    VStack(spacing: 0) {
+                        LinearGradient(
+                            colors: [PaceColor.canvas.opacity(0), .black],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .frame(height: seam)
+                        Color.black
+                    }
+                } else {
+                    Color.black
+                }
+            }
+    }
+}
+
 extension View {
     /// 这一页有浮动的「记一笔」时，用它把那条空间让出来。
     func clearsFab() -> some View {
         modifier(FabClearance())
+    }
+}
+
+extension View {
+    /// 带导航栏的滚动页用它：往上滚过之后顶边 8 点渐隐。
+    func fadesScrollTop() -> some View {
+        modifier(ScrollTopFade())
     }
 }

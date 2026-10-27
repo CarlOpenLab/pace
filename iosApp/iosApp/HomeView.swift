@@ -32,6 +32,7 @@ struct HomeView: View {
                 .padding(.bottom, PaceSpace.cardGap)
             }
             .clearsFab()
+            .fadesScrollTop()
             .tracksFabScroll()
             .paceScreen()
             .navigationTitle(Copy.appName)

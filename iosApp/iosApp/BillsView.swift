@@ -254,6 +254,7 @@ struct BillsView: View {
         .scrollContentBackground(.hidden)
         .background(PaceColor.canvas)
         .clearsFab()
+        .fadesScrollTop()
         .tracksFabScroll()
     }
 
