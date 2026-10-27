@@ -54,7 +54,7 @@ enum PaceColor {
     static let segSlotSolid = Color(light: 0xE8E8E8, dark: 0x1B1B1C)
     static let segThumb = Color(light: 0xFFFFFF, dark: 0x2C2C2E)
     /// 选中块的投影。暗色要重得多（45%）：浅投影在深底上等于没有。
-    static let segThumbShadow = Color(light: 0x000000, lightAlpha: 0.12, dark: 0x000000, darkAlpha: 0.45)
+    static let segThumbShadow = Color(light: 0x000000, lightAlpha: 0.14, dark: 0x000000, darkAlpha: 0.50)
 
     /// 中性底上的浅色块（状态胶囊、缺口标记）
     static var softFill: Color { Color(light: 0x000000, lightAlpha: 0.06, dark: 0xFFFFFF, darkAlpha: 0.10) }

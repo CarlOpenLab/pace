@@ -82,8 +82,10 @@ struct PaceSegmented<Value: Hashable>: View {
                     if selection == value {
                         capsule
                             .fill(PaceColor.segThumb)
-                            // 「抬起」：块比槽亮一档 + 这道投影，灰度下也分得出边界。
-                            .shadow(color: PaceColor.segThumbShadow, radius: 3, x: 0, y: 1)
+                            // 「抬起」：块比槽亮一档 + 一道很紧的投影。
+                            // 半径不能大：空只有 3 点，半径 3 的投影会把整条空填成灰的，
+                            // 看着就像胶囊贴死在槽边上（最大档实测：空 #D9D9D9，远离胶囊的槽 #E6E6E6）。
+                            .shadow(color: PaceColor.segThumbShadow, radius: 1.5, x: 0, y: 1)
                             .matchedGeometryEffect(id: "selected", in: selectionNS)
                     }
                 }
