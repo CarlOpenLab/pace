@@ -63,7 +63,9 @@ struct StatsView: View {
         PaceSegmented(
             options: StatsKind.allCases,
             title: { $0.title },
-            selection: $kind
+            selection: $kind,
+            // 跟账单同一句组名：不然读屏只念「本周」，听不出这个本周管的是哪一段。
+            groupLabel: Copy.Bills.rangeLabel
         )
         .frame(maxWidth: .infinity)
     }

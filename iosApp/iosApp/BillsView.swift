@@ -146,7 +146,8 @@ struct BillsView: View {
         // 上 8、下 12（DESIGN-switcher.md §2 的容器内距）。
         .padding(.top, 8)
         .padding(.bottom, 12)
-        .accessibilityLabel(Text(Copy.Bills.rangeLabel))
+        // 组名只在组件里给一次（groupLabel）。外面再挂一条是同一个意思写两遍，
+        // 而且容器上的 label 有可能把里面三个段盖掉——靠实现细节活着的写法，删掉。
     }
 
     // MARK: - 内容与状态

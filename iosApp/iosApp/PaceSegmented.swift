@@ -28,6 +28,9 @@ struct PaceSegmented<Value: Hashable>: View {
     /// 降低透明度：glassEffect 会退回实底，那时槽没有「板」了——白胶囊会浮在半空。
     /// 这一档显式给实色槽（亮 #E8E8E8、暗 #1B1B1C），描边、胶囊、投影照旧。
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isDark: Bool { colorScheme == .dark }
 
     @Namespace private var selectionNS
 
@@ -82,10 +85,17 @@ struct PaceSegmented<Value: Hashable>: View {
                     if selection == value {
                         capsule
                             .fill(PaceColor.segThumb)
-                            // 「抬起」：块比槽亮一档 + 一道很紧的投影。
+                            // 亮色：「抬起」= 块比槽亮一档 + 一道很紧的投影。
                             // 半径不能大：空只有 3 点，半径 3 的投影会把整条空填成灰的，
                             // 看着就像胶囊贴死在槽边上（最大档实测：空 #D9D9D9，远离胶囊的槽 #E6E6E6）。
-                            .shadow(color: PaceColor.segThumbShadow, radius: 1.5, x: 0, y: 1)
+                            // 暗色：投影是黑的、压在黑底上等于没有，所以整个去掉，换成一根描边
+                            // 加一档更明显的亮度差——暗色里「形」比「抬升」先被眼睛抓住。
+                            .shadow(color: isDark ? .clear : PaceColor.segThumbShadow, radius: 1.5, x: 0, y: 1)
+                            .overlay {
+                                if isDark {
+                                    capsule.strokeBorder(PaceColor.segThumbEdge, lineWidth: 0.5)
+                                }
+                            }
                             .matchedGeometryEffect(id: "selected", in: selectionNS)
                     }
                 }
