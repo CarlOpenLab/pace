@@ -51,31 +51,27 @@ fun BillsScreen(onOpenTxn: (String) -> Unit, onAdd: () -> Unit) {
 
     val txns by produceState<List<Transaction>>(initialValue = emptyList(), keyword, range, refresh) {
         val today = AppContainer.todayIso()
-        value = when (range) {
-            RangeKind.WEEK -> {
-                val week = AppContainer.ledger.weekRange(today)
-                if (week != null) {
-                    if (keyword.isBlank()) {
-                        AppContainer.ledger.transactions(week.from, week.to)
-                    } else {
-                        AppContainer.ledger.searchTransactions(keyword)
-                    }
-                } else emptyList()
-            }
-            RangeKind.MONTH -> {
-                val month = AppContainer.ledger.monthRange(today)
-                if (month != null) {
-                    if (keyword.isBlank()) {
-                        AppContainer.ledger.transactions(month.from, month.to)
-                    } else {
-                        AppContainer.ledger.searchTransactions(keyword)
-                    }
-                } else emptyList()
-            }
-            RangeKind.ALL -> if (keyword.isBlank()) {
-                AppContainer.ledger.allTransactions()
-            } else {
-                AppContainer.ledger.searchTransactions(keyword)
+        value = AppContainer.withLedger { ledger ->
+            when (range) {
+                RangeKind.WEEK -> {
+                    val week = ledger.weekRange(today)
+                    if (week != null) {
+                        if (keyword.isBlank()) ledger.transactions(week.from, week.to)
+                        else ledger.searchTransactions(keyword)
+                    } else emptyList()
+                }
+                RangeKind.MONTH -> {
+                    val month = ledger.monthRange(today)
+                    if (month != null) {
+                        if (keyword.isBlank()) ledger.transactions(month.from, month.to)
+                        else ledger.searchTransactions(keyword)
+                    } else emptyList()
+                }
+                RangeKind.ALL -> if (keyword.isBlank()) {
+                    ledger.allTransactions()
+                } else {
+                    ledger.searchTransactions(keyword)
+                }
             }
         }
     }
@@ -133,10 +129,10 @@ fun BillsScreen(onOpenTxn: (String) -> Unit, onAdd: () -> Unit) {
                                     .padding(vertical = 4.dp)
                             ) { TxnRow(txn, onOpenTxn) }
                             IconButton(onClick = {
-                                val deleted = AppContainer.ledger.deleteTransaction(txn.id)
-                                if (deleted != null) {
-                                    refresh += 1
-                                    scope.launch {
+                                scope.launch {
+                                    val deleted = AppContainer.withLedger { it.deleteTransaction(txn.id) }
+                                    if (deleted != null) {
+                                        refresh += 1
                                         val result = snackbarHostState.showSnackbar(
                                             message = "已删除「${deleted.note.ifBlank { deleted.category }}」",
                                             actionLabel = "撤销",
@@ -144,23 +140,25 @@ fun BillsScreen(onOpenTxn: (String) -> Unit, onAdd: () -> Unit) {
                                         )
                                         if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
                                             // 撤销 = 用原数据重新入账（U3）
-                                            AppContainer.ledger.saveTransaction(
-                                                pace.shared.model.SaveTxnInput(
-                                                    id = deleted.id,
-                                                    type = deleted.type,
-                                                    amountText = pace.shared.money.Money.formatMinor(deleted.amountMinor),
-                                                    currency = deleted.currency,
-                                                    category = deleted.category,
-                                                    account = deleted.account,
-                                                    note = deleted.note,
-                                                    occurredAtEpochMillis = deleted.occurredAtEpochMillis,
-                                                    localDate = deleted.localDate,
-                                                    timezoneId = deleted.timezoneId,
-                                                    countInBudget = deleted.countInBudget,
-                                                    refundOfId = deleted.refundOfId,
-                                                    forceSave = true
+                                            AppContainer.withLedger {
+                                                it.saveTransaction(
+                                                    pace.shared.model.SaveTxnInput(
+                                                        id = deleted.id,
+                                                        type = deleted.type,
+                                                        amountText = pace.shared.money.Money.formatMinor(deleted.amountMinor),
+                                                        currency = deleted.currency,
+                                                        category = deleted.category,
+                                                        account = deleted.account,
+                                                        note = deleted.note,
+                                                        occurredAtEpochMillis = deleted.occurredAtEpochMillis,
+                                                        localDate = deleted.localDate,
+                                                        timezoneId = deleted.timezoneId,
+                                                        countInBudget = deleted.countInBudget,
+                                                        refundOfId = deleted.refundOfId,
+                                                        forceSave = true
+                                                    )
                                                 )
-                                            )
+                                            }
                                             refresh += 1
                                         }
                                     }

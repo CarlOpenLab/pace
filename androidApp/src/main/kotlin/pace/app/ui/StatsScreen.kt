@@ -42,11 +42,13 @@ fun StatsScreen() {
 
     val stats by produceState<RangeStats?>(initialValue = null, kind) {
         val today = AppContainer.todayIso()
-        val range = when (kind) {
-            StatsKind.WEEK -> AppContainer.ledger.weekRange(today)
-            StatsKind.MONTH -> AppContainer.ledger.monthRange(today)
+        value = AppContainer.withLedger { ledger ->
+            val range = when (kind) {
+                StatsKind.WEEK -> ledger.weekRange(today)
+                StatsKind.MONTH -> ledger.monthRange(today)
+            }
+            range?.let { ledger.rangeStats(it.from, it.to) }
         }
-        value = range?.let { AppContainer.ledger.rangeStats(it.from, it.to) }
     }
 
     Column(

@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import pace.app.AppContainer
 import pace.app.ai.DraftItem
 import pace.app.ai.DraftMissing
@@ -83,6 +85,7 @@ fun DraftReviewScreen(
     var failureBody by remember { mutableStateOf<String?>(null) }
     /** 保存后要留在这页上的重复笔；null = 没有这步。1.4 秒后要么走人、要么留重复问用户。 */
     var pendingDuplicates by remember { mutableStateOf<List<DraftItem>?>(null) }
+    val scope = rememberCoroutineScope()
 
     // DraftItem 字段可变但不可观察：改动后换一份列表触发重画
     fun mutate() {
@@ -103,12 +106,7 @@ fun DraftReviewScreen(
         }
     }
 
-    fun saveAll() {
-        if (saving || missingCount > 0 || drafts.isEmpty()) return
-        saving = true
-        failureBody = null
-        val outcome = DraftSaver.save(drafts)
-
+    fun saveOutcome(outcome: DraftSaver.Outcome) {
         if (outcome.failed.isNotEmpty()) {
             saving = false
             val kept = outcome.failed + outcome.duplicated
@@ -134,6 +132,16 @@ fun DraftReviewScreen(
         }
         pendingDuplicates = outcome.duplicated
     }
+    fun saveAll() {
+        if (saving || missingCount > 0 || drafts.isEmpty()) return
+        saving = true
+        failureBody = null
+        scope.launch {
+            val outcome = AppContainer.withLedger { DraftSaver.save(drafts) }
+            saveOutcome(outcome)
+        }
+    }
+
 
     // 保存结果收尾：有重复的留在页上问，没有的 1.4 秒后关页（iOS 同节奏）
     LaunchedEffect(pendingDuplicates) {
@@ -151,18 +159,20 @@ fun DraftReviewScreen(
     }
 
     fun saveDuplicatesAnyway() {
-        val outcome = DraftSaver.save(drafts, force = true)
-        if (outcome.failed.isNotEmpty()) {
+        scope.launch {
+            val outcome = AppContainer.withLedger { DraftSaver.save(drafts, force = true) }
+            if (outcome.failed.isNotEmpty()) {
             drafts = outcome.failed
             mutate()
             failureBody = if (outcome.saved > 0) {
                 PaceCopy.Failed.DraftSave.partial(outcome.saved, outcome.failed.size)
             } else if (outcome.failed.size == 1) PaceCopy.Failed.DraftSave.bodyOne else PaceCopy.Failed.DraftSave.bodyMany
-            return
+            return@launch
         }
         failureBody = null
         toast = PaceCopy.Save.saved(outcome.saved)
-        pendingDuplicates = emptyList()
+            pendingDuplicates = emptyList()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

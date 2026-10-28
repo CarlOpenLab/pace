@@ -44,7 +44,7 @@ import pace.shared.money.Money
 @Composable
 fun HomeScreen(onAdd: () -> Unit, onOpenTxn: (String) -> Unit) {
     val overview by produceState<TodayOverview?>(initialValue = null, key1 = "home") {
-        value = AppContainer.ledger.todayOverview(AppContainer.todayIso())
+        value = AppContainer.withLedger { it.todayOverview(AppContainer.todayIso()) }
     }
     val data = overview ?: return
 
@@ -253,19 +253,4 @@ private fun GlassTxnRow(txn: Transaction, onOpenTxn: (String) -> Unit) {
             color = if (txn.type == TxnType.REFUND) Color(0xFF0D8570) else MaterialTheme.colorScheme.onSurface
         )
     }
-}
-
-private fun categoryEmoji(category: String): String = when (category) {
-    "餐饮" -> "🍜"
-    "交通" -> "🚗"
-    "购物" -> "🛍"
-    "住房" -> "🏠"
-    "娱乐" -> "🎬"
-    "医疗" -> "💊"
-    "教育" -> "📚"
-    "人情社交" -> "🎁"
-    "工资" -> "💰"
-    "理财" -> "📈"
-    "转账" -> "🔁"
-    else -> "💠"
 }

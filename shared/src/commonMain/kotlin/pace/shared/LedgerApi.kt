@@ -275,8 +275,9 @@ class LedgerApi internal constructor(
                 valid = false, errors = outcome.errors
             )
             is Importer.ParseOutcome.Ok -> {
-                val existingIds = allTransactions().map { it.id }.toSet()
-                val existingFingerprints = allTransactions().map { it.fingerprint }.toSet()
+                val existing = allTransactions()
+                val existingIds = existing.map { it.id }.toSet()
+                val existingFingerprints = existing.map { it.fingerprint }.toSet()
                 val dates = outcome.envelope.transactions.map { it.localDate }.sorted()
                 ImportPreview(
                     transactionCount = outcome.envelope.transactions.size.toLong(),
@@ -303,8 +304,9 @@ class LedgerApi internal constructor(
                 return ApplyImportResult(false, 0, 0, ErrorCodes.IMPORT_VALIDATION_FAILED, outcome.errors)
             is Importer.ParseOutcome.Ok -> outcome.envelope
         }
-        val existingIds = allTransactions().map { it.id }.toSet()
-        val existingFingerprints = allTransactions().map { it.fingerprint }.toSet()
+        val existing = allTransactions()
+        val existingIds = existing.map { it.id }.toSet()
+        val existingFingerprints = existing.map { it.fingerprint }.toSet()
         val replace = mode == "REPLACE"
         var inserted = 0L
         var skipped = 0L
