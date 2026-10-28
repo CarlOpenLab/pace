@@ -13,6 +13,19 @@ object PaceCopy {
         const val switchHint = "切换后已经填的内容不会丢"
     }
 
+    /** 记一笔手动表单的散字（docs/add-mode-switch-copy.md §3，与 iOS Copy.Add 同源）。 */
+    object Add {
+        const val sectionAmount = "金额"
+        const val sectionCategory = "分类"
+        const val sectionNote = "备注"
+        const val notePlaceholder = "例如：午饭"
+        const val accountPlaceholder = "现金、微信、银行卡…"
+        const val sectionRefundOriginal = "这笔退的是哪一笔"
+        const val noRefundCandidates = "还没有可以关联的支出账单。"
+        const val customAccount = "自定义…"
+        const val customAccountTitle = "自定义账户"
+    }
+
     object Ai {
         object Input {
             const val placeholder = "早饭 12，地铁 4"

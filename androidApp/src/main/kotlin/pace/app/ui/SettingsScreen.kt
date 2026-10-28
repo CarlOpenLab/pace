@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +36,8 @@ import pace.app.AppContainer
 import pace.shared.datetime.PaceDates
 import pace.shared.model.ImportPreview
 import java.io.File
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -44,6 +47,7 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val ledger = AppContainer.ledger
     var refresh by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     // ---- 预算 ----
     val currentBudget = remember(refresh) { ledger.budgetFor(AppContainer.todayIso()) }
@@ -62,12 +66,16 @@ fun SettingsScreen() {
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
-            if (text != null) {
-                pendingImport = text
-                importPreview = ledger.previewImport(text)
-            } else {
-                importMessage = "无法读取文件"
+            scope.launch {
+                val text = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                }
+                if (text != null) {
+                    pendingImport = text
+                    importPreview = AppContainer.withLedger { it.previewImport(text) }
+                } else {
+                    importMessage = "无法读取文件"
+                }
             }
         }
     }
@@ -120,16 +128,44 @@ fun SettingsScreen() {
                     Spacer(Modifier.height(4.dp))
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = {
-                    val error = ledger.setBudget(budgetText, "CNY", budgetEffectiveFrom)
-                    if (error == null) {
-                        budgetError = null
-                        refresh += 1
-                    } else {
-                        budgetError = describeError(error)
-                    }
-                }) { Text("保存预算") }
+                Spacer(Modifier.height(10.dp))
+                // spec §9：真按钮——不填灰的点不动，成功变「已保存」1.6 秒后回来
+                val amountValid = remember(budgetText) {
+                    pace.shared.money.Money.parseToMinor(budgetText.trim()) != null
+                }
+                var budgetSavedFlash by remember { mutableStateOf(false) }
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val err = AppContainer.withLedger { it.setBudget(budgetText, "CNY", budgetEffectiveFrom) }
+                            if (err == null) {
+                                budgetError = null
+                                refresh += 1
+                                budgetSavedFlash = true
+                                kotlinx.coroutines.delay(1600)
+                                budgetSavedFlash = false
+                            } else {
+                                budgetError = describeError(err)
+                            }
+                        }
+                    },
+                    enabled = amountValid && !budgetSavedFlash,
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = if (amountValid) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (amountValid) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+                ) {
+                    Text(
+                        if (budgetSavedFlash) "已保存" else "保存预算",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
                 Text(
                     "修改预算从指定生效日开始，不重写历史。",
                     style = MaterialTheme.typography.bodySmall,
@@ -144,11 +180,21 @@ fun SettingsScreen() {
                 Text("导出与恢复", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Row {
-                    OutlinedButton(onClick = { shareExport(context, "csv", ledger.exportCsv()) }) {
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            val csv = AppContainer.withLedger { it.exportCsv() }
+                            shareExport(context, "csv", csv)
+                        }
+                    }) {
                         Text("导出 CSV")
                     }
                     Spacer(Modifier.padding(4.dp))
-                    OutlinedButton(onClick = { shareExport(context, "json", ledger.exportJson(AppContainer.timezoneId)) }) {
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            val json = AppContainer.withLedger { it.exportJson(AppContainer.timezoneId) }
+                            shareExport(context, "json", json)
+                        }
+                    }) {
                         Text("导出 JSON")
                     }
                 }
@@ -204,15 +250,18 @@ fun SettingsScreen() {
             confirmButton = {
                 if (preview.valid) {
                     TextButton(onClick = {
-                        val result = ledger.applyImport(pendingImport!!, "MERGE")
-                        importMessage = if (result.applied) {
-                            "已合并：新入 ${result.insertedCount} 笔，跳过 ${result.skippedCount} 条"
-                        } else {
-                            "合并失败：${result.errors.joinToString().take(200)}"
+                        val file = pendingImport!!
+                        scope.launch {
+                            val result = AppContainer.withLedger { it.applyImport(file, "MERGE") }
+                            importMessage = if (result.applied) {
+                                "已合并：新入 ${result.insertedCount} 笔，跳过 ${result.skippedCount} 条"
+                            } else {
+                                "合并失败：${result.errors.joinToString().take(200)}"
+                            }
+                            pendingImport = null
+                            importPreview = null
+                            refresh += 1
                         }
-                        pendingImport = null
-                        importPreview = null
-                        refresh += 1
                     }) { Text("合并") }
                 }
             },
@@ -233,15 +282,18 @@ fun SettingsScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     confirmReplace = false
-                    val result = ledger.applyImport(pendingImport!!, "REPLACE")
-                    importMessage = if (result.applied) {
-                        "已替换：写入 ${result.insertedCount} 笔"
-                    } else {
-                        "替换失败，原账本未变更：${result.errors.joinToString().take(200)}"
+                    val file = pendingImport!!
+                    scope.launch {
+                        val result = AppContainer.withLedger { it.applyImport(file, "REPLACE") }
+                        importMessage = if (result.applied) {
+                            "已替换：写入 ${result.insertedCount} 笔"
+                        } else {
+                            "替换失败，原账本未变更：${result.errors.joinToString().take(200)}"
+                        }
+                        pendingImport = null
+                        importPreview = null
+                        refresh += 1
                     }
-                    pendingImport = null
-                    importPreview = null
-                    refresh += 1
                 }) { Text("确认替换") }
             },
             dismissButton = {
@@ -258,9 +310,11 @@ fun SettingsScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
-                    val ok = ledger.clearAllData()
-                    importMessage = if (ok) "已清空全部数据" else "清空失败"
-                    refresh += 1
+                    scope.launch {
+                        val ok = AppContainer.withLedger { it.clearAllData() }
+                        importMessage = if (ok) "已清空全部数据" else "清空失败"
+                        refresh += 1
+                    }
                 }) { Text("确认清空") }
             },
             dismissButton = {
@@ -270,11 +324,12 @@ fun SettingsScreen() {
     }
 }
 
-private fun shareExport(context: Context, ext: String, content: String) {
+private suspend fun shareExport(context: Context, ext: String, content: String) {
     val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-    val file = File(dir, "pace-ledger-$stamp.$ext")
-    file.writeText(content, Charsets.UTF_8)
+    val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+        File(dir, "pace-ledger-$stamp.$ext").apply { writeText(content, Charsets.UTF_8) }
+    }
     val uri = androidx.core.content.FileProvider.getUriForFile(
         context, context.packageName + ".fileprovider", file
     )

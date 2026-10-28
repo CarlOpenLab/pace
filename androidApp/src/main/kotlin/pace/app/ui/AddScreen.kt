@@ -1,6 +1,8 @@
 package pace.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -17,10 +19,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePickerState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -47,6 +60,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -164,14 +180,16 @@ fun AddScreen(
 
     fun saveManual(force: Boolean) {
         error = null
-        val result: SaveResult = AppContainer.ledger.saveTransaction(buildSaveInput(force))
-        if (result.isSuccess) {
-            onDone()
-        } else if (result.errorCode == ErrorCodes.DUPLICATE_FINGERPRINT) {
-            duplicateDraft = null
-            confirmDuplicate = true
-        } else {
-            error = describeError(result.errorCode)
+        scope.launch {
+            val result: SaveResult = AppContainer.withLedger { it.saveTransaction(buildSaveInput(force)) }
+            if (result.isSuccess) {
+                onDone()
+            } else if (result.errorCode == ErrorCodes.DUPLICATE_FINGERPRINT) {
+                duplicateDraft = null
+                confirmDuplicate = true
+            } else {
+                error = describeError(result.errorCode)
+            }
         }
     }
 
@@ -251,10 +269,7 @@ fun AddScreen(
         mode = newMode
     }
 
-    fun saveInline(draft: DraftItem) {
-        if (savingInline) return
-        savingInline = true
-        val outcome = DraftSaver.save(listOf(draft))
+    fun saveInlineOutcome(draft: DraftItem, outcome: DraftSaver.Outcome) {
         if (outcome.saved > 0) {
             inlineSaved = true
             savingInline = false
@@ -271,6 +286,15 @@ fun AddScreen(
         } else {
             // 账没记上，话也不能说成「那句话没读懂」
             inlineSaveFailed = true
+        }
+    }
+
+    fun saveInline(draft: DraftItem) {
+        if (savingInline) return
+        savingInline = true
+        scope.launch {
+            val outcome = AppContainer.withLedger { DraftSaver.save(listOf(draft)) }
+            saveInlineOutcome(draft, outcome)
         }
     }
 
@@ -463,125 +487,190 @@ fun AddScreen(
                 }
             }
         } else {
-            // ---------- 手动（原有表单） ----------
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                typeOptions.forEach { (value, label) ->
-                    FilterChip(
-                        selected = type == value,
-                        onClick = {
-                            type = value
-                            if (value == TxnType.INCOME) category = "工资"
-                            if (value == TxnType.TRANSFER) category = "转账"
-                        },
-                        label = { Text(label) }
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
+            // ---------- 手动（docs/DESIGN-add-mode-switch.md §3：四张卡，金额→归属→备注→预算） ----------
 
-            OutlinedTextField(
-                value = amountText,
-                onValueChange = { amountText = it },
-                label = { Text("金额（元）") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-
-            Text("分类", style = MaterialTheme.typography.labelLarge)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(vertical = 8.dp)
+            // 卡 1 · 金额和类型：这笔多少、是进是出，是同一个判断的两半，不拆成两张卡
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(RoundedCornerShape(20.dp))
+                    .padding(16.dp)
             ) {
-                categories
-                    .sortedWith(compareByDescending<pace.shared.model.Category> { it.usageCount }.thenBy { it.sortOrder })
-                    .forEach { c ->
+                Text(
+                    PaceCopy.Add.sectionAmount,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    placeholder = { Text("0.00", style = MaterialTheme.typography.headlineMedium) },
+                    prefix = {
+                        Text(
+                            "¥",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.headlineMedium,
+                    colors = paceFieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(12.dp))
+                // 四个类型胶囊：放不下横向滚动，不换行（spec §3）
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    typeOptions.forEach { (value, label) ->
                         FilterChip(
-                            selected = category == c.name,
-                            onClick = { category = c.name },
-                            label = { Text(c.name) }
+                            selected = type == value,
+                            onClick = {
+                                type = value
+                                if (value == TxnType.INCOME) category = "工资"
+                                if (value == TxnType.TRANSFER) category = "转账"
+                            },
+                            label = { Text(label) }
                         )
                     }
+                }
             }
+            Spacer(Modifier.height(14.dp))
 
-            OutlinedTextField(
-                value = localDate,
-                onValueChange = { localDate = it },
-                label = { Text("归属日期（yyyy-MM-dd）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = account,
-                onValueChange = { account = it },
-                label = { Text("账户/支付方式") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = note,
-                onValueChange = { text ->
-                    note = text
-                    if (type == TxnType.EXPENSE) {
-                        category = AppContainer.ledger.suggestCategory(text.ifBlank { amountText }, type)
+            // 卡 2 · 归属：分类最高频放最上面；卡里只有这一条分隔线
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(RoundedCornerShape(20.dp))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        PaceCopy.Add.sectionCategory,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        categories
+                            .sortedWith(compareByDescending<pace.shared.model.Category> { it.usageCount }.thenBy { it.sortOrder })
+                            .forEach { c ->
+                                FilterChip(
+                                    selected = category == c.name,
+                                    onClick = { category = c.name },
+                                    label = { Text(c.name) }
+                                )
+                            }
                     }
-                },
-                label = { Text("备注（输入内容会实时给出本地分类建议）") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+                DateRow(localDate = localDate, onPick = { localDate = it })
+                AccountRow(account = account, onChange = { account = it })
+            }
+            Spacer(Modifier.height(14.dp))
 
+            // 卡 3 · 备注
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(RoundedCornerShape(20.dp))
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(PaceCopy.Add.sectionNote, style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.width(12.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { text ->
+                        note = text
+                        if (type == TxnType.EXPENSE) {
+                            category = AppContainer.ledger.suggestCategory(text.ifBlank { amountText }, type)
+                        }
+                    },
+                    placeholder = { Text(PaceCopy.Add.notePlaceholder) },
+                    colors = paceFieldColors(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+
+            // 卡 4 · 计入预算（仅支出/退款）
             if (type == TxnType.EXPENSE || type == TxnType.REFUND) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassCard(RoundedCornerShape(20.dp))
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("计入每日预算")
+                        Text("计入每日预算", style = MaterialTheme.typography.titleSmall)
                         Text(
                             "关闭后仍计入总支出统计",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Spacer(Modifier.weight(1f))
                     Switch(checked = countInBudget, onCheckedChange = { countInBudget = it })
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
             }
 
+            // 退款关联卡（仅退款）
             if (type == TxnType.REFUND) {
-                Text("退款关联原账单", style = MaterialTheme.typography.labelLarge)
-                if (expensesForRefund.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassCard(RoundedCornerShape(20.dp))
+                        .padding(16.dp)
+                ) {
                     Text(
-                        "还没有可关联的支出账单",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        PaceCopy.Add.sectionRefundOriginal,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        expensesForRefund.take(10).forEach { candidate ->
-                            FilterChip(
-                                selected = refundOfId == candidate.id,
-                                onClick = { refundOfId = candidate.id },
-                                label = {
-                                    Text(
-                                        "${candidate.localDate} ${Money.display(candidate.amountMinor, candidate.currency)} ${candidate.note.ifBlank { candidate.category }}"
-                                    )
-                                }
-                            )
+                    if (expensesForRefund.isEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            PaceCopy.Add.noRefundCandidates,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            expensesForRefund.take(10).forEach { candidate ->
+                                FilterChip(
+                                    selected = refundOfId == candidate.id,
+                                    onClick = { refundOfId = candidate.id },
+                                    label = {
+                                        Text(
+                                            "${candidate.localDate} ${Money.display(candidate.amountMinor, candidate.currency)} ${candidate.note.ifBlank { candidate.category }}"
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
+                Spacer(Modifier.height(14.dp))
             }
 
             error?.let {
@@ -599,7 +688,6 @@ fun AddScreen(
             }
             Spacer(Modifier.height(8.dp))
         }
-
         Spacer(Modifier.height(120.dp))
     }
 
@@ -616,16 +704,18 @@ fun AddScreen(
                         // 这笔重复来自一句话的「记上」
                         duplicateDraft = null
                         savingInline = true
-                        val outcome = DraftSaver.save(listOf(forcedDraft), force = true)
-                        savingInline = false
-                        if (outcome.saved > 0) {
-                            inlineSaved = true
-                            scope.launch {
+                        scope.launch {
+                            val outcome = AppContainer.withLedger {
+                                DraftSaver.save(listOf(forcedDraft), force = true)
+                            }
+                            savingInline = false
+                            if (outcome.saved > 0) {
+                                inlineSaved = true
                                 kotlinx.coroutines.delay(800)
                                 onDone()
+                            } else {
+                                inlineSaveFailed = true
                             }
-                        } else {
-                            inlineSaveFailed = true
                         }
                     } else {
                         saveManual(force = true)
@@ -849,6 +939,168 @@ private fun FailureCard(
                 TextButton(onClick = { onSecondary(secondary) }) { Text(secondary) }
             }
         }
+    }
+}
+
+
+/** 金额/备注这类嵌在玻璃卡里的输入框：去边框去底色，只留字。 */
+@Composable
+private fun paceFieldColors() = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = Color.Transparent,
+    unfocusedBorderColor = Color.Transparent,
+    disabledBorderColor = Color.Transparent,
+    focusedContainerColor = Color.Transparent,
+    unfocusedContainerColor = Color.Transparent
+)
+
+private val accountPresets = listOf("现金", "微信", "支付宝", "银行卡")
+
+/** 日期行：显示「今天 · 10月28日」，点开系统日期选择器（spec §3 卡 2）。 */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun DateRow(localDate: String, onPick: (String) -> Unit) {
+    var showPicker by remember { mutableStateOf(false) }
+    val today = AppContainer.todayIso()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clickable { showPicker = true }
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("日期", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.weight(1f))
+        Text(
+            dateDisplayText(localDate, today),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(6.dp))
+        Icon(
+            Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+    if (showPicker) {
+        val initialMillis = remember(localDate) {
+            runCatching {
+                java.time.LocalDate.parse(localDate)
+                    .atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+            }.getOrElse { System.currentTimeMillis() }
+        }
+        val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        onPick(
+                            java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+                        )
+                    }
+                    showPicker = false
+                }) { Text("好") }
+            },
+            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("取消") } }
+        ) {
+            DatePicker(state = state)
+        }
+    }
+}
+
+private fun dateDisplayText(iso: String, todayIso: String): String {
+    val date = runCatching { java.time.LocalDate.parse(iso) }.getOrNull() ?: return iso
+    val base = "${date.monthValue}月${date.dayOfMonth}日"
+    val yesterday = runCatching {
+        java.time.LocalDate.parse(todayIso).minusDays(1).toString()
+    }.getOrNull()
+    return when (iso) {
+        todayIso -> "今天 · $base"
+        yesterday -> "昨天 · $base"
+        else -> base
+    }
+}
+
+/** 账户行：预设 + 自定义…（spec §3 卡 2；词与 iOS Copy.Add 一致）。 */
+@Composable
+private fun AccountRow(account: String, onChange: (String) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var showCustom by remember { mutableStateOf(false) }
+    var customDraft by remember { mutableStateOf("") }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("账户", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.weight(1f))
+        Row(
+            modifier = Modifier.clickable { menuOpen = true },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                account.ifEmpty { PaceCopy.Add.accountPlaceholder },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            accountPresets.forEach { preset ->
+                DropdownMenuItem(
+                    text = { Text(preset) },
+                    leadingIcon = {
+                        if (account == preset) {
+                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    },
+                    onClick = { onChange(preset); menuOpen = false }
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(PaceCopy.Add.customAccount) },
+                onClick = {
+                    menuOpen = false
+                    customDraft = account
+                    showCustom = true
+                }
+            )
+        }
+    }
+    if (showCustom) {
+        AlertDialog(
+            onDismissRequest = { showCustom = false },
+            title = { Text(PaceCopy.Add.customAccountTitle) },
+            text = {
+                OutlinedTextField(
+                    value = customDraft,
+                    onValueChange = { customDraft = it },
+                    placeholder = { Text("账户名称") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCustom = false
+                    val trimmed = customDraft.trim()
+                    if (trimmed.isNotEmpty()) onChange(trimmed)
+                }) { Text("好") }
+            },
+            dismissButton = { TextButton(onClick = { showCustom = false }) { Text("取消") } }
+        )
     }
 }
 
