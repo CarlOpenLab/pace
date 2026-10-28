@@ -60,7 +60,7 @@ object AiSettings {
         private set
 
     fun init(context: Context) {
-        if (this::prefs.isInitialized) return
+        // 可重入：重复调用等于按存储重载一遍（设置项都是即改即存的）
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         enabled = prefs.getBoolean(KEY_ENABLED, false)
         endpoint = prefs.getString(KEY_ENDPOINT, "").orEmpty()

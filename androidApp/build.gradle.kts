@@ -36,6 +36,12 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -58,5 +64,9 @@ dependencies {
     // org.json 在 JVM 单测里是 android.jar 的抛异常桩；测试域里给一份真实现，
     // 让 AiDraftClient 的解析纯函数可以直接跑 :androidApp:testDebugUnitTest
     testImplementation("org.json:json:20240303")
+    // Robolectric：本机没有模拟器，账本读写/草稿保存流程在 JVM 上走真 SQLite 回归
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.junit)
     testImplementation(libs.junit)
 }

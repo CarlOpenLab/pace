@@ -23,6 +23,15 @@ object AppContainer {
     }
 
     /**
+     * Robolectric 的 SQLite 连接池每个测试重置，单例必须跟着换新 driver；
+     * 只在测试里调用（@VisibleForTesting），生产路径只走 init。
+     */
+    @androidx.annotation.VisibleForTesting
+    internal fun resetForTest(application: Application) {
+        ledger = LedgerApi(AndroidDriverFactory.create(application))
+    }
+
+    /**
      * 把账本读写挪出主线程：LedgerApi 保持同步（与 iOS 共用一套门面），
      * Android 的所有调用点统一包在这里。一次性小查询（打开页面取编辑态）可以不走。
      */
