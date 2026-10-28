@@ -528,11 +528,8 @@ fun AddScreen(
                     typeOptions.forEach { (value, label) ->
                         FilterChip(
                             selected = type == value,
-                            onClick = {
-                                type = value
-                                if (value == TxnType.INCOME) category = "工资"
-                                if (value == TxnType.TRANSFER) category = "转账"
-                            },
+                            // 与 iOS 一致：只换类型不动分类——编辑时覆盖用户选的分类是帮倒忙
+                            onClick = { type = value },
                             label = { Text(label) }
                         )
                     }
