@@ -475,6 +475,8 @@ enum Copy {
         static let notePlaceholder = "例如：午饭"
         static let sectionRefundOriginal = "这笔退的是哪一笔"
         static let noRefundCandidates = "还没有可以关联的支出账单。"
+        /// 日期面板上的完成键（面板见 AddView.dateRow）。
+        static let done = "完成"
 
         /// 7.16 保留的四个 Section 名。
         enum Section {

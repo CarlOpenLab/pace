@@ -40,6 +40,8 @@ struct AddView: View {
     @State private var errorText: String?
     @State private var showCustomAccount = false
     @State private var customAccountDraft = ""
+    /// 日期行走「按一下开面板」：面板里是图形选择器，见 dateRow。
+    @State private var showDatePicker = false
 
     // 一句话
     @State private var mode: AddFillMode
@@ -945,32 +947,46 @@ struct AddView: View {
     private var dateRow: some View {
         // 放得下就一行，放不下就上下两行：字是用户选的，不缩也不截。
         // 写死 lineLimit(1) 之后，大字号下日期会变成「今天 · 10月2…」——那是把日期截掉了。
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                dateRowLabel
-                Spacer(minLength: 12)
-                dateRowValue
+        Button {
+            showDatePicker = true
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    dateRowLabel
+                    Spacer(minLength: 12)
+                    dateRowValue
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    dateRowLabel
+                    dateRowValue
+                }
             }
-            VStack(alignment: .leading, spacing: 4) {
-                dateRowLabel
-                dateRowValue
-            }
+            .frame(minHeight: 52)
+            .contentShape(Rectangle())
         }
-        .frame(minHeight: 52)
-        // .compact 的 DatePicker 只负责交互，显示用上面那行「今天 · 10月26日」。
-        .overlay(alignment: .trailing) {
-            DatePicker("", selection: dateBinding, displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                // 0.02 在大字号下仍看得见一层影子；0.001 看不见，但点击照收。
-                .opacity(0.001)
-                .frame(width: 170, height: 44)
-                // 裁掉：大字号下那颗紧凑选择器会画得比 170 宽，0.02 的透明度也看得出影子。
-                .clipped()
-                .accessibilityLabel(Text(Copy.Draft.Field.date))
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(Copy.Draft.Field.date)，\(dateDisplay)"))
         .padding(.horizontal, PaceSpace.cardPadding)
-        .contentShape(Rectangle())
+        // 以前这里垫一颗 opacity(0.001) 的隐形 compact picker 接点击。那颗透明度
+        // 在 iOS 26 上把点按整个吃掉了（模拟器里点下去选择器纹丝不动），日期选不了。
+        // 现在按一下开面板，面板里是图形选择器：和设置页「生效日期」同一个套路，
+        // 大字号下也不会像隐形 picker 那样撑出这一行的框。
+        .sheet(isPresented: $showDatePicker) {
+            NavigationStack {
+                DatePicker(Copy.Draft.Field.date, selection: dateBinding, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
+                    .padding()
+                    .navigationTitle(Copy.Draft.Field.date)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(Copy.Add.done) { showDatePicker = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private var dateRowLabel: some View {
